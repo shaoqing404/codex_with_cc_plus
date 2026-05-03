@@ -31,7 +31,7 @@ $taskSpecs = @(
     FileName = 'anchor-read-protocol.md'
     SessionMode = 'PrimaryAnchor'
     SessionFlags = '-SessionMode PrimaryAnchor -AllowParallel'
-    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/CLAUDE_CODE_DELEGATION.md"
+    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/CODEX_WITH_CC.md"
     Tests = "pwsh -NoProfile -File .\docs\codex_with_cc\scripts\verify_delegate_artifacts.ps1 -RunId <anchor-run-id> -ArtifactRoot '$artifactRoot'"
     Task = @"
 只读验证任务：通过 Codex spawn_agent 子线程承载 Claude worker，审查 delegate_to_claude.ps1 与 claude_session_pool.ps1 的主线锚点行为。
@@ -76,7 +76,7 @@ $taskSpecs = @(
     FileName = 'reuse-cross-check-1.md'
     SessionMode = 'PrimaryReuse'
     SessionFlags = '-SessionMode PrimaryReuse'
-    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_delegate_backend_helpers.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/scripts/verify_delegate_artifacts.ps1`ndocs/codex_with_cc/scripts/verify_delegate_chain.ps1`ndocs/codex_with_cc/scripts/run_real_delegate_chain_validation.ps1`ndocs/codex_with_cc/scripts/test_delegate_runtime.ps1`ndocs/codex_with_cc/scripts/test_delegate_session_pool.ps1`ndocs/codex_with_cc/CODEX_WITH_CC.md`ndocs/codex_with_cc/CLAUDE_CODE_DELEGATION.md`ndocs/codex_with_cc/HOST_PROJECT_RULES.md`ndocs/codex_with_cc/PROJECT_MEMORY.md"
+    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_delegate_backend_helpers.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/scripts/verify_delegate_artifacts.ps1`ndocs/codex_with_cc/scripts/verify_delegate_chain.ps1`ndocs/codex_with_cc/scripts/run_real_delegate_chain_validation.ps1`ndocs/codex_with_cc/scripts/test_delegate_runtime.ps1`ndocs/codex_with_cc/scripts/test_delegate_session_pool.ps1`ndocs/codex_with_cc/CODEX_WITH_CC.md"
     Tests = "pwsh -NoProfile -File .\docs\codex_with_cc\scripts\verify_delegate_artifacts.ps1 -RunId <reuse-1-run-id> -ArtifactRoot '$artifactRoot'"
     Task = @"
 真实复核/返工任务：在锚点与并发旁路完成后，使用同一 SessionKey 续接主线，对前三份结果做交叉复核。
@@ -85,7 +85,7 @@ $taskSpecs = @(
 - 先复核，不做无关修改。
 - 必须确认 PrimaryReuse 优先尝试 resume=true；如果恢复为 fresh session，必须解释审计链。
 - 如果发现真实缺陷，允许在允许范围内修改仓库文件，并补齐最小必要测试。
-- 如果修改任何仓库文件，必须遵守 docs/codex_with_cc/HOST_PROJECT_RULES.md，并在 Verification 中列出实际运行的验证命令。
+- 如果修改任何仓库文件，必须遵守 docs/codex_with_cc/CODEX_WITH_CC.md 中的工作流约束，并在 Verification 中列出实际运行的验证命令。
 - 输出必须包含 Process Log / Summary / Changed Files / Verification / Final Result / Risks Or Follow-ups。
 "@
   },
@@ -93,7 +93,7 @@ $taskSpecs = @(
     FileName = 'reuse-cross-check-2.md'
     SessionMode = 'PrimaryReuse'
     SessionFlags = '-SessionMode PrimaryReuse'
-    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_delegate_backend_helpers.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/scripts/verify_delegate_artifacts.ps1`ndocs/codex_with_cc/scripts/verify_delegate_chain.ps1`ndocs/codex_with_cc/scripts/run_real_delegate_chain_validation.ps1`ndocs/codex_with_cc/scripts/test_delegate_runtime.ps1`ndocs/codex_with_cc/scripts/test_delegate_session_pool.ps1`ndocs/codex_with_cc/CODEX_WITH_CC.md`ndocs/codex_with_cc/CLAUDE_CODE_DELEGATION.md`ndocs/codex_with_cc/HOST_PROJECT_RULES.md`ndocs/codex_with_cc/PROJECT_MEMORY.md"
+    Scope = "docs/codex_with_cc/scripts/delegate_to_claude.ps1`ndocs/codex_with_cc/scripts/claude_delegate_backend_helpers.ps1`ndocs/codex_with_cc/scripts/claude_session_pool.ps1`ndocs/codex_with_cc/scripts/verify_delegate_artifacts.ps1`ndocs/codex_with_cc/scripts/verify_delegate_chain.ps1`ndocs/codex_with_cc/scripts/run_real_delegate_chain_validation.ps1`ndocs/codex_with_cc/scripts/test_delegate_runtime.ps1`ndocs/codex_with_cc/scripts/test_delegate_session_pool.ps1`ndocs/codex_with_cc/CODEX_WITH_CC.md"
     Tests = "pwsh -NoProfile -File .\docs\codex_with_cc\scripts\verify_delegate_artifacts.ps1 -RunId <reuse-2-run-id> -ArtifactRoot '$artifactRoot'"
     Task = @"
 只读验证任务：再次在同一 SessionKey 下顺序续接主线，验证高缓存命中不是偶发成功。

@@ -66,10 +66,6 @@ $resolvedTargetRoot = (Resolve-Path -LiteralPath $resolvedTargetRoot).Path
 $docsRoot = Join-Path $resolvedTargetRoot 'docs'
 $workflowRoot = Join-Path $docsRoot 'codex_with_cc'
 
-if ((Test-Path -LiteralPath $workflowRoot) -and -not $Force) {
-  throw "codex_with_cc workflow already exists at '$workflowRoot'. Re-run with -Force to replace it."
-}
-
 if (Test-Path -LiteralPath $workflowRoot) {
   if (-not (Test-PathInside -Child $workflowRoot -Parent $resolvedTargetRoot)) {
     throw "Refusing to remove workflow directory outside target root: $workflowRoot"
@@ -79,15 +75,16 @@ if (Test-Path -LiteralPath $workflowRoot) {
 
 New-Item -ItemType Directory -Path $docsRoot -Force | Out-Null
 Copy-Item -LiteralPath $templateRoot -Destination $workflowRoot -Recurse -Force
+New-Item -ItemType Directory -Path (Join-Path $workflowRoot 'tasks') -Force | Out-Null
 
 if (-not $SkipAgentEntrypoints) {
-  foreach ($entryName in @('AGENTS.md', 'CLAUDE.md', 'GEMINI.md')) {
+  foreach ($entryName in @('AGENTS.md')) {
     Update-AgentEntrypoint -Path (Join-Path $resolvedTargetRoot $entryName)
   }
 }
 
 Write-Host "codex_with_cc installed into: $workflowRoot"
 if (-not $SkipAgentEntrypoints) {
-  Write-Host 'Agent entrypoints updated: AGENTS.md, CLAUDE.md, GEMINI.md'
+  Write-Host 'Agent entrypoints updated: AGENTS.md'
 }
-Write-Host 'Next: customize docs/codex_with_cc/HOST_PROJECT_RULES.md for this host project.'
+Write-Host 'Next: read docs/codex_with_cc/CODEX_WITH_CC.md and use it as the single workflow contract.'

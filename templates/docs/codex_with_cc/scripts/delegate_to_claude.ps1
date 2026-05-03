@@ -43,9 +43,7 @@ $requiredChildThreadMarkerValue = '1'
 
 $repoRoot = (Resolve-Path (Join-Path $PSScriptRoot '..\..\..')).Path
 $workflowRoot = Join-Path $repoRoot 'docs\codex_with_cc'
-$memoryPath = Join-Path $workflowRoot 'PROJECT_MEMORY.md'
-$protocolPath = Join-Path $workflowRoot 'CLAUDE_CODE_DELEGATION.md'
-$hostRulesPath = Join-Path $workflowRoot 'HOST_PROJECT_RULES.md'
+$entryPath = Join-Path $workflowRoot 'CODEX_WITH_CC.md'
 $sessionPoolHelperPath = Join-Path $PSScriptRoot 'claude_session_pool.ps1'
 $backendHelperPath = Join-Path $PSScriptRoot 'claude_delegate_backend_helpers.ps1'
 
@@ -63,19 +61,8 @@ if (-not (Test-Path -LiteralPath $backendHelperPath)) {
 . $sessionPoolHelperPath
 . $backendHelperPath
 
-if (-not (Test-Path -LiteralPath $memoryPath)) {
-  throw "Missing project memory: $memoryPath"
-}
-if (-not (Test-Path -LiteralPath $hostRulesPath)) {
-  $hostRulesText = @"
-- No host-specific rules file was found.
-- Do not create or switch branches or worktrees.
-- Do not revert unrelated local changes.
-- Keep edits inside the intended scope unless the task is impossible without a small supporting change.
-- If you modify repository files, run the smallest meaningful verification command you can identify for the changed area.
-"@
-} else {
-  $hostRulesText = Get-Content -LiteralPath $hostRulesPath -Raw
+if (-not (Test-Path -LiteralPath $entryPath)) {
+  throw "Missing workflow entry document: $entryPath"
 }
 
 $childThreadMarker = [Environment]::GetEnvironmentVariable($requiredChildThreadMarkerName)
@@ -155,7 +142,7 @@ $testsText = if ($Tests.Count -gt 0) {
 $workerProtocolText = @"
 - This prompt is already the only allowed Claude worker context for this delegated run.
 - Never call `docs/codex_with_cc/scripts/delegate_to_claude.ps1`, `claude`, or `spawn_agent` recursively from inside this worker.
-- Treat `docs/codex_with_cc/CLAUDE_CODE_DELEGATION.md` as a repository document to inspect when the task scope requires it, not as an execution recipe for this worker.
+- Treat `docs/codex_with_cc/CODEX_WITH_CC.md` as the workflow contract to inspect when the task scope requires it, not as an execution recipe for this worker.
 - If the task is an audit or validation, inspect the scoped files and run the listed verification commands directly instead of creating nested delegate runs.
 - If you think another delegate run is required, stop and explain why in `Final Result` instead of invoking it yourself.
 "@
@@ -188,16 +175,10 @@ $workerProtocolText
 Task:
 $taskText
 
-Host project rules:
-$hostRulesText
-
 Hard requirements:
-- Read docs/codex_with_cc/PROJECT_MEMORY.md before scanning other repository files.
-- Read and follow docs/codex_with_cc/HOST_PROJECT_RULES.md before modifying repository files.
-- Do not create or switch branches or worktrees unless the host project rules explicitly require it.
-- Do not revert unrelated local changes.
+- Read docs/codex_with_cc/CODEX_WITH_CC.md before scanning other repository files.
+- Use docs/codex_with_cc/CODEX_WITH_CC.md as the single workflow contract for delegation, audit flow, session mode interpretation, and worker report requirements.
 - Keep edits inside the intended scope unless the task is impossible without a small supporting change.
-- If you modify repository files, follow the host project rules for changelog, memory, documentation, formatting, and project-specific validation.
 - You must run necessary verification before handing work back. Run every command listed under Required or expected verification; if none is listed, infer the smallest meaningful format/analyze/test command for the changed area.
 - Do not return code that you know fails to compile, analyze, or pass the required focused tests. Fix verification failures and rerun them until they pass.
 - If verification is blocked by an external dependency or a clearly pre-existing unrelated failure, report the exact command, failure summary, and why it is not caused by your changes.

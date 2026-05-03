@@ -1,4 +1,4 @@
-> 如果你是 Codex / Claude / Gemini / 其他 AI 代理，并且用户让你把本仓库集成到某个项目里：请先阅读 [docs/AI_INSTALL.md](docs/AI_INSTALL.md)。
+> 如果你是 Codex，并且用户让你把本仓库集成到某个项目里：请先阅读 [docs/AI_INSTALL.md](docs/AI_INSTALL.md)。
 
 # Codex 穷鬼大救星！
 
@@ -29,7 +29,7 @@ Codex 子代理任意模型大协作，Codex 穷鬼大救星！
 把下面这句扔给目标项目里的 Codex。
 
 ```text
-请把 https://github.com/xdd666t/codex_with_cc 集成到当前项目，安装 docs/codex_with_cc 工作流，更新 AGENTS.md、CLAUDE.md、GEMINI.md 的入口提示，保留项目原有规则。安装后运行可用验证，并告诉我如何使用 Codex 子代理委派 Claude Code/DeepSeek 干活。
+请把 https://github.com/xdd666t/codex_with_cc 集成到当前项目，安装 docs/codex_with_cc 工作流，更新 AGENTS.md 的入口提示，保留项目原有规则。安装后运行可用验证，并告诉我如何使用 Codex 子代理委派 Claude Code/DeepSeek 干活。
 ```
 
 这才是正经用法：你负责发号施令，Codex 负责搬砖和验收。安装细节、验证命令、Windows/macOS 适配这些苦力活，已经放在 [docs/AI_INSTALL.md](docs/AI_INSTALL.md) 里让 AI 自己啃。

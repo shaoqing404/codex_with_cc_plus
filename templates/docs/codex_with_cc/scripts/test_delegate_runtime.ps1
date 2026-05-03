@@ -569,8 +569,9 @@ Risks Or Follow-ups
   Assert-True -Condition (-not $anchorTaskText.Contains([string][char]11)) -Name 'real-chain-validation-does-not-emit-vertical-tab'
   Assert-True -Condition ($reuseTaskText.Contains('允许在允许范围内修改仓库文件')) -Name 'real-chain-validation-allows-reuse-repair-writes'
   Assert-True -Condition ($reuseTaskText.Contains('docs/codex_with_cc/CODEX_WITH_CC.md')) -Name 'real-chain-validation-reuse-scope-includes-codex-with-cc-entry'
-  Assert-True -Condition ($reuseTaskText.Contains('docs/codex_with_cc/HOST_PROJECT_RULES.md')) -Name 'real-chain-validation-reuse-scope-includes-host-rules'
-  Assert-True -Condition ($reuseTaskText.Contains('docs/codex_with_cc/PROJECT_MEMORY.md')) -Name 'real-chain-validation-reuse-scope-includes-project-memory'
+  Assert-True -Condition (-not $reuseTaskText.Contains('docs/codex_with_cc/CLAUDE_CODE_DELEGATION.md')) -Name 'real-chain-validation-reuse-scope-omits-delegation-protocol'
+  Assert-True -Condition (-not $reuseTaskText.Contains('docs/codex_with_cc/HOST_PROJECT_RULES.md')) -Name 'real-chain-validation-reuse-scope-omits-host-rules'
+  Assert-True -Condition (-not $reuseTaskText.Contains('docs/codex_with_cc/PROJECT_MEMORY.md')) -Name 'real-chain-validation-reuse-scope-omits-project-memory'
 
   $sessionPoolHelperLiteralPath = $sessionPoolHelperPath.Replace("'", "''")
   $sessionWarningOutput = & pwsh -NoProfile -Command @'
