@@ -37,6 +37,7 @@
 
 - 这套工作流默认是独立层，不需要为了当前项目再发明一份特化版安装文档。
 - 一旦目标项目接入这套工作流，后续凡是需要子代理/子线程继续执行的任务，都必须强制走本仓库定义的自定义委派链路：`Codex 主线程 -> Codex 子代理 -> <workflow-root>/<platform_scripts>/delegate_to_claude.* -> scripts/*.py -> Claude Code CLI`。
+- Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger.
 - 不要把 Codex 自带的默认子代理工作流、宿主环境内置代理流程，或者“直接让当前 AI 自己继续开子代理干活”当作这套链路的等价替代。
 - 如果 Codex 沙箱或代跑环境无法执行同一委派命令，Codex 应改由受信任本机终端运行同一命令，并保留相同的 `CODEX_CLAUDE_CHILD_THREAD=1`、`TaskFile`、Session 参数、ArtifactRoot 和权限参数。
 - 不要追问“要保留上游原样接入，还是顺手按当前项目定制”这类范围选择题。
@@ -98,6 +99,7 @@ codex_with_cc/macos_scripts/delegate_to_claude.sh
 ```markdown
 <!-- BEGIN CODEX_WITH_CC -->
 Codex with Claude Code workflow: before using this workflow, read `<workflow-root>/CODEX_WITH_CC.md`.
+Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger.
 If the task involves child agents, subagents, delegation, or any worker-execution step, you must read that file first and follow the custom `Codex main thread -> Codex child agent -> delegate_to_claude.* -> Claude Code CLI` workflow defined there.
 <!-- END CODEX_WITH_CC -->
 ```
