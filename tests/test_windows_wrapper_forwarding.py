@@ -51,10 +51,36 @@ def load_json(path: Path) -> dict:
 def make_fake_claude_bin(root: Path) -> Path:
     fake_bin = root / "fake-claude-bin"
     fake_bin.mkdir(parents=True, exist_ok=True)
+    report = "\n".join(
+        (
+            "Process Log",
+            "- inspected the wrapper chain",
+            "",
+            "Summary",
+            "Fake Claude completed the wrapper test.",
+            "",
+            "Changed Files",
+            "None",
+            "",
+            "Verification",
+            "- fake verification passed",
+            "",
+            "Final Result",
+            "PASS",
+            "",
+            "Risks Or Follow-ups",
+            "None",
+        )
+    )
+    assistant_record = json.dumps(
+        {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": report}]}},
+        separators=(",", ":"),
+    )
+    result_record = json.dumps({"type": "result", "subtype": "success"}, separators=(",", ":"))
     (fake_bin / "claude.cmd").write_text(
         '@echo off\n'
-        'echo {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I inspected the wrapper chain."}]}}\n'
-        'echo {"type":"result","subtype":"success"}\n'
+        f"echo {assistant_record}\n"
+        f"echo {result_record}\n"
         "exit /b 0\n",
         encoding="utf-8",
     )

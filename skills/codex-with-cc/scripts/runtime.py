@@ -131,7 +131,24 @@ def same_path(a: str | Path, b: str | Path) -> bool:
 def test_final_result_heading(text: str | None) -> bool:
     if not text or not text.strip():
         return False
-    return re.search(r"(?m)^(?:#+\s*)?Final Result\s*$", text) is not None
+    return report_heading_match(text, "Final Result") is not None
+
+
+def report_heading_match(text: str, heading: str) -> re.Match[str] | None:
+    pattern = rf"(?m)^\s*(?:#+\s*)?(?:\*\*)?{re.escape(heading)}(?:\*\*)?\s*$"
+    return re.search(pattern, text)
+
+
+def text_has_required_report_headings(text: str | None) -> bool:
+    if not text or not text.strip():
+        return False
+    positions: list[int] = []
+    for heading in REPORT_HEADINGS:
+        match = report_heading_match(text, heading)
+        if match is None:
+            return False
+        positions.append(match.start())
+    return positions == sorted(positions)
 
 
 def path_has_final_result(path: Path | str | None) -> bool:
@@ -143,11 +160,20 @@ def path_has_final_result(path: Path | str | None) -> bool:
     return test_final_result_heading(read_text(path))
 
 
+def path_has_required_report_headings(path: Path | str | None) -> bool:
+    if not path:
+        return False
+    path = Path(path)
+    if not path.exists():
+        return False
+    return text_has_required_report_headings(read_text(path))
+
+
 def convert_unstructured_final_text(text: str | None) -> str:
     trimmed = (text or "").strip()
     if not trimmed:
         return ""
-    if test_final_result_heading(trimmed):
+    if text_has_required_report_headings(trimmed):
         return trimmed
     return f"""Process Log
 - Claude Code exited successfully but did not produce the required delegate report headings.
@@ -178,8 +204,8 @@ def get_output_resolution(
     saw_result_success: bool,
     captured_final_result_heading: bool,
 ) -> dict[str, Any]:
-    final_has = test_final_result_heading(final_text)
-    existing_structured = path_has_final_result(output_path)
+    final_has = text_has_required_report_headings(final_text)
+    existing_structured = path_has_required_report_headings(output_path)
     normalized = (
         exit_code == 0
         and saw_result_success
@@ -188,9 +214,9 @@ def get_output_resolution(
         and bool(final_text.strip())
     )
     persisted = convert_unstructured_final_text(final_text) if normalized else final_text
-    persisted_has = test_final_result_heading(persisted)
+    persisted_has = text_has_required_report_headings(persisted)
     should_persist = persisted_has or (not existing_structured and bool(final_text.strip()))
-    delegate_succeeded = exit_code == 0 and saw_result_success and (captured_final_result_heading or existing_structured)
+    delegate_succeeded = exit_code == 0 and saw_result_success and (final_has or existing_structured)
     return {
         "finalTextHasFinalResult": final_has,
         "existingStructuredOutput": existing_structured,
@@ -697,7 +723,7 @@ def update_stream_capture(record: dict[str, Any], state: dict[str, Any]) -> list
             text = "\n".join(texts).strip()
             if text:
                 state["sawAssistantText"] = True
-                if test_final_result_heading(text):
+                if text_has_required_report_headings(text):
                     state["capturedFinalResultHeading"] = True
                 state["assistantTexts"].append(text)
                 state["finalText"] = text
@@ -873,13 +899,24 @@ Hard requirements:
 - Process and summarize your own CLI output. The Codex child thread will forward your final structured result; it should not reinterpret long logs for you.
 - Treat this script as a child-thread worker entry only. Do not reinterpret it as permission for the Codex main thread to invoke Claude directly.
 - Write enough detail in Process Log for the user to understand what happened, but keep raw verbose command output in the transcript/log instead of duplicating it.
-- Finish with these exact headings:
-  Process Log
-  Summary
-  Changed Files
-  Verification
-  Final Result
-  Risks Or Follow-ups
+- Finish with this exact report skeleton. Do not add text before `Process Log`; do not bold or decorate these headings:
+Process Log
+- <what you did>
+
+Summary
+<brief result>
+
+Changed Files
+- <path or None>
+
+Verification
+- <command and outcome>
+
+Final Result
+<PASS, FAIL, or blocked result>
+
+Risks Or Follow-ups
+- <risk or None>
 """
 
 
@@ -1361,8 +1398,8 @@ Risks Or Follow-ups
             write_text(output_path, str(output_resolution["persistedFinalText"]))
         elif not output_path.exists():
             write_text(output_path, "Claude delegate finished without a structured text result.")
-        output_has_final = path_has_final_result(output_path)
-        if status["attempts"] and output_has_final:
+        output_has_report = path_has_required_report_headings(output_path)
+        if status["attempts"] and output_has_report:
             status["attempts"][-1]["capturedFinalResult"] = True
         if output_resolution["outputWasNormalized"]:
             status["outputWasNormalized"] = True
@@ -1371,7 +1408,7 @@ Risks Or Follow-ups
         status["outputBytes"] = output_path.stat().st_size
         status["exitCode"] = exit_code
         status["retryCount"] = retry_count
-        status["status"] = "completed" if delegate_succeeded and output_has_final else "failed"
+        status["status"] = "completed" if delegate_succeeded and output_has_report else "failed"
         if failure_disposition:
             status["failureDisposition"] = failure_disposition
             status["failureSummary"] = failure_summary_text
@@ -1386,7 +1423,7 @@ Risks Or Follow-ups
         if status["status"] != "completed":
             if failure_disposition == "NEED_HUMAN_INTERVENTION":
                 raise DelegateError(f"Claude delegate retry ceiling reached: {failure_summary_text}")
-            raise DelegateError(f"Claude Code finished without a valid structured Final Result report. Output: {output_path}")
+            raise DelegateError(f"Claude Code finished without the required structured delegate report headings. Output: {output_path}")
         return 0
     finally:
         release_session_lease(session_state_path, session_state_lock_path, key, lease, run_id, fingerprint)
@@ -1427,8 +1464,8 @@ def verify_artifacts(run_id: str, artifact_root_value: str | None) -> dict[str, 
     structured_failure = status_value == "failed"
     if not completed and not structured_failure:
         raise DelegateError(f"Delegate status is neither completed nor failed: {status_value}")
-    if not path_has_final_result(output_path):
-        raise DelegateError(f"Delegate output does not contain a Final Result heading: {output_path}")
+    if not path_has_required_report_headings(output_path):
+        raise DelegateError(f"Delegate output does not contain the required report headings in order: {output_path}")
     if completed and status.get("exitCode") is not None and int(status["exitCode"]) != 0:
         raise DelegateError(f"Delegate exitCode is not zero: {status['exitCode']}")
     if structured_failure and status.get("exitCode") is not None and int(status["exitCode"]) == 0:
@@ -1800,7 +1837,7 @@ def update_installed_workflow_references(workflow: Path, workflow_relative: str)
     if replacement == canonical:
         return
     for path in workflow.rglob("*"):
-        if not path.is_file() or path.suffix not in {".md", ".ps1", ".sh", ".py"}:
+        if not path.is_file() or path.suffix not in {".md", ".ps1", ".sh"}:
             continue
         text = read_text(path)
         updated = (
@@ -1990,11 +2027,15 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_true(run.returncode != 0, "unstructured-run-fails")
         output_text = read_text(next(run_root.glob("claude_*.md")))
         status = load_json(next(run_root.glob("status_*.json")))
-        assert_true(test_final_result_heading(output_text), "unstructured-output-has-final-result")
+        assert_true(text_has_required_report_headings(output_text), "unstructured-output-has-report-headings")
         assert_true("UNSTRUCTURED_SUCCESS_REJECTED" in output_text, "unstructured-output-labels-rejection")
         assert_equal(status["status"], "failed", "unstructured-status-failed")
         assert_equal(status["failureDisposition"], "NEED_HUMAN_INTERVENTION", "unstructured-failure-disposition")
         assert_true(boolish(status.get("outputWasNormalized")), "unstructured-status-records-normalization")
+        markdown_report = "\n".join(f"**{heading}**" for heading in REPORT_HEADINGS)
+        assert_true(text_has_required_report_headings(markdown_report), "markdown-report-headings-accepted")
+        missing_summary = markdown_report.replace("**Summary**\n", "")
+        assert_true(not text_has_required_report_headings(missing_summary), "missing-report-heading-rejected")
 
         decision = retry_decision(
             ["Error: stream-json output requires the --verbose flag when printing"],
