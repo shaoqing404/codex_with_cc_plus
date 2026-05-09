@@ -3,8 +3,6 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from .common import SKILL_NAME, same_path
-
 
 
 def runtime_python_root() -> Path:
@@ -17,23 +15,8 @@ def workflow_root() -> Path:
 
 
 
-def codex_home() -> Path:
-    raw = os.environ.get("CODEX_HOME")
-    return Path(raw).expanduser().resolve() if raw else (Path.home() / ".codex").resolve()
-
-
-
 def repo_root() -> Path:
-    root = workflow_root()
-    container = root.parent
-    if root.name == SKILL_NAME and container.name == "skills":
-        if same_path(container.parent, codex_home()):
-            return Path.cwd().resolve()
-        if container.parent.name == ".codex":
-            return container.parent.parent.resolve()
-    if container.name in ("docs", "doc"):
-        return container.parent.resolve()
-    return container.resolve()
+    return Path.cwd().resolve()
 
 
 
