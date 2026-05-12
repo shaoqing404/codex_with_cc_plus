@@ -25,6 +25,8 @@ def test_codex_with_cc_skill_contract() -> None:
     assert codex_plugin.exists()
     assert not (repo / ".claude-plugin" / "plugin.json").exists()
     assert "docs/codex_with_cc" not in (skill / "CODEX_WITH_CC.md").read_text(encoding="utf-8")
+    assert "<installed-workflow-root>" in (skill / "CODEX_WITH_CC.md").read_text(encoding="utf-8")
+    assert "<installed codex-with-cc plugin root>" not in (skill / "CODEX_WITH_CC.md").read_text(encoding="utf-8")
 
     codex_manifest = json.loads(codex_plugin.read_text(encoding="utf-8"))
     assert codex_manifest["name"] == "codex-with-cc"

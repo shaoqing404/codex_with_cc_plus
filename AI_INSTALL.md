@@ -123,6 +123,16 @@ codex plugin marketplace add aiskyhub/aiskyhub
 
 安装后如未即时生效，可提示用户重载插件或重启 Codex。
 
+### 4. 定位已安装 workflow 根目录
+
+后续委派命令里的 `<installed-workflow-root>` 指已安装插件包内部的 `skills/codex-with-cc` 目录，例如：
+
+```text
+<codex-home>/plugins/cache/aiskyhub/codex-with-cc/<version-or-hash>/skills/codex-with-cc
+```
+
+不要把 `<version-or-hash>` 包根目录当成 workflow 根目录；`scripts`、`windows_scripts` 和 `macos_scripts` 都在 `skills/codex-with-cc` 下面。
+
 ## 失败处理
 
 - marketplace 添加失败：直接报告失败并停止
@@ -150,7 +160,7 @@ codex plugin marketplace add aiskyhub/aiskyhub
 
 ```powershell
 $env:CODEX_CLAUDE_CHILD_THREAD = '1'
-pwsh -NoProfile -File "<installed-plugin-root>\windows_scripts\delegate_to_claude.ps1" `
+pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\delegate_to_claude.ps1" `
   -TaskFile .\.codex\codex_with_cc\tasks\<yyyyMMdd>\<HHmmssfff>-<short-id>-<task-file>.md `
   -SessionMode PrimaryReuse `
   -SessionKey <stable-session-key> `
@@ -161,7 +171,7 @@ macOS 子线程标准调用形态：
 
 ```bash
 export CODEX_CLAUDE_CHILD_THREAD=1
-"<installed-plugin-root>/macos_scripts/delegate_to_claude.sh" \
+"<installed-workflow-root>/macos_scripts/delegate_to_claude.sh" \
   -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
   -SessionMode PrimaryReuse \
   -SessionKey <stable-session-key> \
@@ -196,19 +206,19 @@ export CODEX_CLAUDE_CHILD_THREAD=1
 检查单次委派产物：
 
 ```powershell
-pwsh -NoProfile -File "<installed-plugin-root>\windows_scripts\verify_delegate_artifacts.ps1"
+pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_artifacts.ps1"
 ```
 
 ```bash
-"<installed-plugin-root>/macos_scripts/verify_delegate_artifacts.sh"
+"<installed-workflow-root>/macos_scripts/verify_delegate_artifacts.sh"
 ```
 
 检查多轮链路连续性：
 
 ```powershell
-pwsh -NoProfile -File "<installed-plugin-root>\windows_scripts\verify_delegate_chain.ps1"
+pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_chain.ps1"
 ```
 
 ```bash
-"<installed-plugin-root>/macos_scripts/verify_delegate_chain.sh"
+"<installed-workflow-root>/macos_scripts/verify_delegate_chain.sh"
 ```

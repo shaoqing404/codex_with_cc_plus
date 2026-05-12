@@ -7,7 +7,7 @@ This document is the portable entry point for the Codex -> Codex child agent -> 
 
 ## Core Contract
 1. The Codex main thread must not run `claude` directly.
-2. The Codex main thread must not run the installed plugin delegate entrypoint directly (`windows_scripts/delegate_to_claude.ps1` on Windows or `macos_scripts/delegate_to_claude.sh` on macOS inside the installed `codex-with-cc` plugin root), except for the trusted local terminal fallback below.
+2. The Codex main thread must not run the installed plugin delegate entrypoint directly (`windows_scripts/delegate_to_claude.ps1` on Windows or `macos_scripts/delegate_to_claude.sh` on macOS inside the installed workflow root), except for the trusted local terminal fallback below.
 3. Every Claude Code delegation must be carried by a Codex `spawn_agent` child thread.
 4. The child thread must set `CODEX_CLAUDE_CHILD_THREAD=1` before invoking `delegate_to_claude.*`.
 5. The child thread should use `model: gpt-5.3-codex`, `reasoning_effort: medium`, and `fork_context: false`.
@@ -63,13 +63,15 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 
 Use `verify_delegate_artifacts.*` for each run and `verify_delegate_chain.*` for multi-run continuity checks. The shared implementation lives under `scripts/*.py`; platform wrappers should stay thin. macOS entrypoints are native shell wrappers around the same Python runtime, preserve the same Codex main thread -> child thread -> delegate entrypoint boundary as Windows, and only check for Python at runtime.
 
+`<installed-workflow-root>` means the installed `skills/codex-with-cc` directory, for example `<codex-home>/plugins/cache/aiskyhub/codex-with-cc/<version-or-hash>/skills/codex-with-cc`. Do not use the package root `<version-or-hash>` directory; it does not contain `scripts`, `windows_scripts`, or `macos_scripts` directly.
+
 ## Standard Worker Command
 Normally run this inside a Codex child thread. If the Codex sandbox or delegated runner cannot execute it, use the trusted local terminal fallback above.
 
 Windows:
 
 ```powershell
-$workflowRoot = '<installed codex-with-cc plugin root>'
+$workflowRoot = '<installed-workflow-root>'
 $env:CODEX_CLAUDE_CHILD_THREAD = '1'
 pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\delegate_to_claude.ps1') `
   -TaskFile .\.codex\codex_with_cc\tasks\<yyyyMMdd>\<HHmmssfff>-<short-id>-<task-file>.md `
@@ -81,7 +83,7 @@ pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\delegate_to_clau
 macOS:
 
 ```bash
-WORKFLOW_ROOT="<installed codex-with-cc plugin root>"
+WORKFLOW_ROOT="<installed-workflow-root>"
 export CODEX_CLAUDE_CHILD_THREAD=1
 "$WORKFLOW_ROOT/macos_scripts/delegate_to_claude.sh" \
   -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
@@ -98,7 +100,7 @@ Run the local regression tests after installing or changing this workflow.
 Windows:
 
 ```powershell
-$workflowRoot = '<installed codex-with-cc plugin root>'
+$workflowRoot = '<installed-workflow-root>'
 pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\test_delegate_runtime.ps1')
 pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\test_delegate_session_pool.ps1')
 ```
@@ -106,7 +108,7 @@ pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\test_delegate_se
 macOS:
 
 ```bash
-WORKFLOW_ROOT="<installed codex-with-cc plugin root>"
+WORKFLOW_ROOT="<installed-workflow-root>"
 "$WORKFLOW_ROOT/macos_scripts/test_delegate_runtime.sh"
 "$WORKFLOW_ROOT/macos_scripts/test_delegate_session_pool.sh"
 ```
@@ -114,13 +116,13 @@ WORKFLOW_ROOT="<installed codex-with-cc plugin root>"
 Generate a real chain validation scaffold with:
 
 ```powershell
-$workflowRoot = '<installed codex-with-cc plugin root>'
+$workflowRoot = '<installed-workflow-root>'
 pwsh -NoProfile -File (Join-Path $workflowRoot 'windows_scripts\run_real_delegate_chain_validation.ps1')
 ```
 
 or on macOS:
 
 ```bash
-WORKFLOW_ROOT="<installed codex-with-cc plugin root>"
+WORKFLOW_ROOT="<installed-workflow-root>"
 "$WORKFLOW_ROOT/macos_scripts/run_real_delegate_chain_validation.sh"
 ```
