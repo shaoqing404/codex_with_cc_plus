@@ -15,6 +15,8 @@ def test_codex_with_cc_skill_contract() -> None:
     assert (skill / "CODEX_WITH_CC.md").exists()
     assert (skill / "scripts" / "runtime.py").exists()
     assert (skill / "scripts" / "delegate_to_claude.py").exists()
+    assert not (skill / "scripts" / "check_subagent_gate.py").exists()
+    assert not (skill / "scripts" / "codex_with_cc_runtime" / "subagent_gate.py").exists()
     assert not (skill / "scripts" / f"{legacy_installer_stem}.py").exists()
     assert not (skill / "scripts" / "codex_with_cc_runtime" / "installer.py").exists()
     assert not (repo / f"{legacy_installer_stem}.ps1").exists()
@@ -77,6 +79,7 @@ def test_codex_with_cc_skill_contract() -> None:
         "Risks Or Follow-ups",
     ):
         assert required in text
+    assert "check_subagent_gate" not in text
     assert "installed globally under `$CODEX_HOME/skills/codex-with-cc`" not in text
     assert "plugin-managed installation" in text
 

@@ -29,6 +29,8 @@ Codex 主线程 -> Codex spawn_agent 子线程 -> 已安装插件中的 delegate
 
 不要把 Codex 默认子代理工作流、宿主环境内置代理流程、直接运行 `claude`、或主线程直接执行 `delegate_to_claude.*` 当作等价替代。
 
+安装后的插件会声明 `./hooks/hooks.json` 平台 hook。宿主启用 Codex hooks 时，插件会在 `SessionStart` 以 `<EXTREMELY_IMPORTANT>` bootstrap 形式注入完整 `SKILL.md` 和 `CODEX_WITH_CC.md` 契约，在 `UserPromptSubmit` 遇到子代理/委派触发词时再次注入完整契约，并在 `PreToolUse` 可见的工具面上拦截直接 `claude`、直接主线程 `delegate_to_claude.*`、以及不合规的 `spawn_agent` 风格 payload。
+
 ## 分发源
 
 唯一分发入口：
@@ -123,7 +125,18 @@ codex plugin marketplace add aiskyhub/aiskyhub
 
 安装后如未即时生效，可提示用户重载插件或重启 Codex。
 
-### 4. 定位已安装 workflow 根目录
+### 4. 启用 Codex hooks 半硬门
+
+如果目标 Codex 宿主支持 hooks，需要确认用户配置启用了：
+
+```toml
+[features]
+codex_hooks = true
+```
+
+没有启用 hooks 时，插件仍会通过 `$codex-with-cc` skill 做工作流约束；启用后会额外获得平台级 `SessionStart`、`UserPromptSubmit` 和 `PreToolUse` 拦截层。
+
+### 5. 定位已安装 workflow 根目录
 
 后续委派命令里的 `<installed-workflow-root>` 指已安装插件包内部的 `skills/codex-with-cc` 目录，例如：
 

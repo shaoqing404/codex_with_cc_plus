@@ -20,6 +20,11 @@ This document is the portable entry point for the Codex -> Codex child agent -> 
 ## Trigger Rule
 Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger. When triggered, the main Codex thread must use this custom delegation workflow and must not satisfy the request with the default Codex subagent flow, a host-provided agent shortcut, direct `claude` execution, or direct main-thread execution of `delegate_to_claude.*`.
 
+## Platform Hook Gate
+The Codex plugin declares `./hooks/hooks.json` as a platform hook layer. When the host has Codex hooks enabled, `SessionStart` injects the full `SKILL.md` and `CODEX_WITH_CC.md` contract inside an `<EXTREMELY_IMPORTANT>` bootstrap context, `UserPromptSubmit` reinforces that full contract whenever the user prompt mentions subagents or delegation, and `PreToolUse` denies supported tool calls that try direct `claude`, direct main-thread `delegate_to_claude.*`, or non-compliant `spawn_agent`-style payloads.
+
+This is a semi-hard platform gate, not a full kernel boundary. Codex `PreToolUse` only blocks tool surfaces the host exposes to hooks; `SessionStart` and `UserPromptSubmit` carry the workflow contract for the rest of the model path.
+
 ## Trusted Local Terminal Fallback
 This fallback is an execution-location fallback only. Preserve the same `CODEX_CLAUDE_CHILD_THREAD=1` marker, task file, session mode, session key, artifact root, and permission flags that the child thread would have used.
 

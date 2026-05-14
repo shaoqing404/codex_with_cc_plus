@@ -23,6 +23,8 @@ The required chain is:
 Codex main thread -> Codex spawn_agent child thread -> delegate_to_claude.* -> Claude Code CLI
 ```
 
+The installed plugin also declares `./hooks/hooks.json` so Codex hosts with hooks enabled can inject this contract at session start, reinforce it on matching user prompts, and deny supported non-compliant tool calls.
+
 The Codex child thread must:
 
 - Use `model: gpt-5.3-codex`, `reasoning_effort: medium`, and `fork_context: false`.

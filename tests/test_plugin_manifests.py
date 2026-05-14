@@ -20,6 +20,8 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert codex_plugin["name"] == "codex-with-cc"
     assert codex_plugin["version"] == "1.0.1"
     assert codex_plugin["skills"] == "./skills/"
+    assert codex_plugin["hooks"] == "./hooks/hooks.json"
+    assert (repo / "hooks" / "hooks.json").exists()
 
     codex_interface = codex_plugin["interface"]
     assert codex_interface["displayName"] == "Codex With CC"
