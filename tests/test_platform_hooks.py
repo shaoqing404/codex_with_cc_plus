@@ -34,6 +34,9 @@ def test_hooks_config_declares_platform_gate_events() -> None:
     hooks = hooks_config["hooks"]
 
     assert set(hooks) == {"SessionStart", "UserPromptSubmit", "PreToolUse"}
+    pre_tool_matcher = hooks["PreToolUse"][0]["matcher"]
+    assert "spawn_agent" in pre_tool_matcher
+    assert "multi_tool_use" in pre_tool_matcher
     for event_name in hooks:
         command = hooks[event_name][0]["hooks"][0]["command"]
         assert "subagent-gate-hook.mjs" in command
@@ -98,6 +101,53 @@ def test_pre_tool_use_denies_non_compliant_spawn_agent_payload() -> None:
     assert "gpt-5.3-codex" in reason
     assert "delegate_to_claude" in reason
     assert "fork_context: false" in reason
+
+
+def test_pre_tool_use_denies_namespaced_spawn_agent_payload() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "functions.spawn_agent",
+            "tool_input": {
+                "message": "Use a normal worker to implement this.",
+                "model": "gpt-5.4",
+                "reasoning_effort": "high",
+                "fork_context": True,
+            },
+        }
+    )
+    reason = hook_specific(output)["permissionDecisionReason"]
+
+    assert "blocked functions.spawn_agent" in reason
+    assert "gpt-5.3-codex" in reason
+    assert "delegate_to_claude" in reason
+
+
+def test_pre_tool_use_denies_spawn_agent_inside_parallel_wrapper() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "functions.spawn_agent",
+                        "parameters": {
+                            "message": "Use a normal worker to implement this.",
+                            "model": "gpt-5.4",
+                            "reasoning_effort": "high",
+                            "fork_context": True,
+                        },
+                    }
+                ]
+            },
+        }
+    )
+    reason = hook_specific(output)["permissionDecisionReason"]
+
+    assert "blocked nested functions.spawn_agent" in reason
+    assert "gpt-5.3-codex" in reason
+    assert "delegate_to_claude" in reason
 
 
 def test_pre_tool_use_allows_compliant_spawn_agent_payload() -> None:

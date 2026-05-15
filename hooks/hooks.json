@@ -7,7 +7,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-gate-hook.mjs\"",
+            "command": "node --input-type=module -e \"import path from 'node:path'; import { pathToFileURL } from 'node:url'; const root = process.env.CLAUDE_PLUGIN_ROOT || process.env.CODEX_PLUGIN_ROOT; if (!root) { console.error('Missing CLAUDE_PLUGIN_ROOT or CODEX_PLUGIN_ROOT'); process.exit(1); } await import(pathToFileURL(path.join(root, 'hooks', 'subagent-gate-hook.mjs')).href);\"",
             "timeout": 5
           }
         ]
@@ -18,7 +18,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-gate-hook.mjs\"",
+            "command": "node --input-type=module -e \"import path from 'node:path'; import { pathToFileURL } from 'node:url'; const root = process.env.CLAUDE_PLUGIN_ROOT || process.env.CODEX_PLUGIN_ROOT; if (!root) { console.error('Missing CLAUDE_PLUGIN_ROOT or CODEX_PLUGIN_ROOT'); process.exit(1); } await import(pathToFileURL(path.join(root, 'hooks', 'subagent-gate-hook.mjs')).href);\"",
             "timeout": 5
           }
         ]
@@ -26,11 +26,11 @@
     ],
     "PreToolUse": [
       {
-        "matcher": "Bash|spawn_agent|Task|subagent|agent|worker|mcp__.*",
+        "matcher": "Bash|.*shell_command.*|spawn_agent|.*spawn_agent.*|Task|subagent|.*subagent.*|agent|worker|multi_tool_use\\.parallel|mcp__.*",
         "hooks": [
           {
             "type": "command",
-            "command": "node \"${CLAUDE_PLUGIN_ROOT}/hooks/subagent-gate-hook.mjs\"",
+            "command": "node --input-type=module -e \"import path from 'node:path'; import { pathToFileURL } from 'node:url'; const root = process.env.CLAUDE_PLUGIN_ROOT || process.env.CODEX_PLUGIN_ROOT; if (!root) { console.error('Missing CLAUDE_PLUGIN_ROOT or CODEX_PLUGIN_ROOT'); process.exit(1); } await import(pathToFileURL(path.join(root, 'hooks', 'subagent-gate-hook.mjs')).href);\"",
             "timeout": 5
           }
         ]

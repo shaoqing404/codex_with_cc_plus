@@ -49,9 +49,8 @@ def hooks_config(plugin_root: Path) -> dict:
     return json.loads(hooks_path.read_text(encoding="utf-8"))
 
 
-def run_hook(plugin_root: Path, project_root: Path, config: dict, event_name: str, payload: dict) -> dict:
+def run_hook(plugin_root: Path, project_root: Path, config: dict, event_name: str, payload: dict, root_env: str = "CLAUDE_PLUGIN_ROOT") -> dict:
     command = config["hooks"][event_name][0]["hooks"][0]["command"]
-    command = command.replace("${CLAUDE_PLUGIN_ROOT}", plugin_root.as_posix())
     result = subprocess.run(
         command,
         input=json.dumps(payload, ensure_ascii=False),
@@ -60,6 +59,7 @@ def run_hook(plugin_root: Path, project_root: Path, config: dict, event_name: st
         stderr=subprocess.PIPE,
         cwd=project_root,
         encoding="utf-8",
+        env={**os.environ, root_env: str(plugin_root)},
         shell=True,
         check=False,
     )
@@ -214,3 +214,19 @@ def test_build_project_smoke_runs_hook_gate_and_delegate_dry_run() -> None:
     assert "Dry run enabled; Claude Code was not invoked." in result.stdout
     assert list(artifact_root.glob("claude_*.md"))
     assert list(artifact_root.glob("status_*.json"))
+
+
+def test_hook_command_runs_with_codex_plugin_root_only() -> None:
+    plugin_root, _workflow_root, project_root = reset_smoke_project()
+    config = hooks_config(plugin_root)
+
+    output = run_hook(
+        plugin_root,
+        project_root,
+        config,
+        "SessionStart",
+        {"hook_event_name": "SessionStart", "source": "startup"},
+        root_env="CODEX_PLUGIN_ROOT",
+    )
+
+    assert "codex-with-cc" in output["hookSpecificOutput"]["additionalContext"]

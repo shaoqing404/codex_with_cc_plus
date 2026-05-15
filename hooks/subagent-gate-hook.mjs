@@ -207,6 +207,40 @@ function isFalse(value) {
   return value === false || value === "false";
 }
 
+function toolNameTail(toolName) {
+  const parts = String(toolName || "").toLowerCase().split(/[.:/\\]/).filter(Boolean);
+  return parts.length > 0 ? parts[parts.length - 1] : "";
+}
+
+function isShellToolName(toolName) {
+  const normalized = String(toolName || "").toLowerCase();
+  return normalized === "bash" || normalized === "shell_command" || toolNameTail(normalized) === "shell_command";
+}
+
+function isWorkflowSpawnToolName(toolName) {
+  const normalized = String(toolName || "").toLowerCase();
+  const tail = toolNameTail(normalized);
+  return SPAWN_TOOL_NAMES.has(normalized) || SPAWN_TOOL_NAMES.has(tail) || normalized.includes("spawn_agent") || normalized.includes("subagent");
+}
+
+function nestedToolUses(toolInput) {
+  if (Array.isArray(toolInput?.tool_uses)) {
+    return toolInput.tool_uses;
+  }
+  if (Array.isArray(toolInput?.toolUses)) {
+    return toolInput.toolUses;
+  }
+  return [];
+}
+
+function nestedToolName(item) {
+  return item?.recipient_name || item?.recipientName || item?.tool_name || item?.toolName || "";
+}
+
+function nestedToolInput(item) {
+  return item?.parameters || item?.tool_input || item?.toolInput || {};
+}
+
 function hasChildMarker(serialized) {
   const pattern = new RegExp(`${CHILD_MARKER_NAME}\\s*(?:=|:)\\s*["']?${CHILD_MARKER_VALUE}["']?`, "i");
   return pattern.test(serialized);
@@ -338,7 +372,23 @@ function handlePreToolUse(input) {
   const serialized = stringify(toolInput);
   const normalizedToolName = toolName.toLowerCase();
 
-  if (normalizedToolName === "bash") {
+  const nestedProblems = [];
+  for (const item of nestedToolUses(toolInput)) {
+    const name = nestedToolName(item);
+    if (!isWorkflowSpawnToolName(name)) {
+      continue;
+    }
+    const problems = validateWorkflowPayload(nestedToolInput(item));
+    if (problems.length > 0) {
+      nestedProblems.push(`nested ${name}: ${problems.join("; ")}`);
+    }
+  }
+  if (nestedProblems.length > 0) {
+    writeJson(deny(`codex-with-cc platform gate blocked ${nestedProblems.join("; ")}.`));
+    return;
+  }
+
+  if (isShellToolName(normalizedToolName)) {
     const problems = [];
 
     if (hasDirectClaudeCommand(serialized)) {
@@ -389,7 +439,7 @@ function handlePreToolUse(input) {
     return;
   }
 
-  if (!SPAWN_TOOL_NAMES.has(normalizedToolName)) {
+  if (!isWorkflowSpawnToolName(toolName)) {
     return;
   }
 
