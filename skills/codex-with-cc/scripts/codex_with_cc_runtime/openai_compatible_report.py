@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import urllib.error
 import urllib.request
 import uuid
@@ -81,7 +82,8 @@ def _build_report_prompt(
     tests_text = "\n".join(f"- {item}" for item in tests) if tests else "- None"
     return (
         "Produce only a workflow/process report. Do not execute shell commands, do not propose file edits, and do not claim code was changed.\n"
-        "Use the exact report headings and order below. Status and Final Result must match.\n\n"
+        "Return plain text only, with no Markdown heading markers, no bullets before headings, and no fenced code blocks.\n"
+        "Each required heading must appear alone on its own line, exactly as listed below, in the same order. Status and Final Result must match.\n\n"
         f"RunId: {run_id}\nWorkflowId: {workflow_id}\nTaskId: {task_id}\nRole: {role}\n\n"
         "Scope:\n"
         f"{scope_text}\n\n"
@@ -192,6 +194,35 @@ def _extract_report_text(response_json: dict[str, Any]) -> str:
         return ""
     content = message.get("content")
     return content.strip() if isinstance(content, str) else ""
+
+
+def _normalize_report_heading_line(line: str) -> str | None:
+    candidate = line.strip()
+    candidate = re.sub(r"^#{1,6}\s+", "", candidate)
+    candidate = re.sub(r"^\d+[\.)]\s+", "", candidate)
+    candidate = candidate.strip().strip("`").strip()
+    candidate = re.sub(r"^\*\*(.*?)\*\*$", r"\1", candidate).strip()
+    candidate = re.sub(r"^__(.*?)__$", r"\1", candidate).strip()
+    if candidate.endswith(":"):
+        candidate = candidate[:-1].strip()
+    for heading in REPORT_HEADINGS:
+        if candidate.lower() == heading.lower():
+            return heading
+    return None
+
+
+def _normalize_model_report_text(text: str) -> tuple[str, bool]:
+    normalized_lines: list[str] = []
+    changed = False
+    for line in text.strip().splitlines():
+        normalized_heading = _normalize_report_heading_line(line)
+        if normalized_heading is not None:
+            normalized_lines.append(normalized_heading)
+            changed = changed or normalized_heading != line.strip()
+            continue
+        normalized_lines.append(line.rstrip())
+    normalized = "\n".join(normalized_lines).strip()
+    return normalized, changed
 
 
 def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
@@ -322,6 +353,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
     exit_code = 0
     failure_summary = ""
     response_json: dict[str, Any] = {}
+    normalized_headings = False
 
     try:
         response_json = _openai_chat_completion(
@@ -332,6 +364,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
             timeout_seconds=timeout_seconds,
         )
         report_text = _extract_report_text(response_json)
+        report_text, normalized_headings = _normalize_model_report_text(report_text)
         if not text_has_required_report_headings(report_text):
             raise DelegateError("Model response did not satisfy required report headings.")
         if parse_report_status(report_text) != parse_report_final_result(report_text):
@@ -353,6 +386,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         "model": model,
         "usage": usage,
         "status": "ok" if exit_code == 0 else "error",
+        "normalizedReportHeadings": normalized_headings,
     }
     write_text(paths["stream"], json.dumps(stream_event, ensure_ascii=False) + "\n")
     write_text(paths["trace"], f"[{now_iso()}] runner={RUNNER_TYPE} status={stream_event['status']}\n")

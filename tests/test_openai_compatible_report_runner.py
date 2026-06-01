@@ -75,7 +75,9 @@ def test_openai_compatible_report_wrappers_forward_to_runtime_subcommand() -> No
     win_entry = repo / "skills" / "codex-with-cc" / "windows_scripts" / "delegate_to_openai_compatible_report.ps1"
 
     assert 'main(["openai-compatible-report", *sys.argv[1:]])' in py_entry.read_text(encoding="utf-8")
-    assert 'delegate_to_openai_compatible_report.py "$@"' in mac_entry.read_text(encoding="utf-8")
+    mac_text = mac_entry.read_text(encoding="utf-8")
+    assert mac_text.startswith("#!/bin/zsh\n")
+    assert 'delegate_to_openai_compatible_report.py "$@"' in mac_text
     assert "delegate_to_openai_compatible_report.py" in win_entry.read_text(encoding="utf-8")
 
 
@@ -236,6 +238,35 @@ def test_openai_compatible_report_runtime_cli_subcommand(monkeypatch, tmp_path: 
     config = json.loads((artifact_root / f"config_{run_id}.json").read_text(encoding="utf-8"))
     assert config["model"] == "deepseek-v4-flash"
     assert config["apiBaseUrl"] == "https://api.deepseek.com"
+    verify_artifacts(run_id, str(artifact_root))
+
+
+def test_openai_compatible_runner_normalizes_markdown_headings(monkeypatch, tmp_path: Path) -> None:
+    _clear_provider_env(monkeypatch)
+    _enable_child_thread(monkeypatch)
+    task_file = tmp_path / "task.md"
+    task_file.write_text(compliant_task("generate a report-only audit"), encoding="utf-8")
+    artifact_root = tmp_path / "artifacts"
+
+    markdown_report = _report().replace("Status", "## Status", 1).replace("Role", "**Role**", 1).replace("Final Result", "Final Result:", 1)
+
+    def fake_urlopen(request, timeout=0):  # type: ignore[no-untyped-def]
+        return _FakeResponse({"choices": [{"message": {"content": markdown_report}}]})
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "env-key")
+
+    code = run_openai_compatible_report_delegate(_base_args(task_file, artifact_root))
+
+    assert code == 0
+    run_id = _find_run_id(artifact_root)
+    output = (artifact_root / f"report_{run_id}.md").read_text(encoding="utf-8")
+    stream = json.loads((artifact_root / f"stream_{run_id}.jsonl").read_text(encoding="utf-8"))
+    assert output.startswith("Status\nDONE")
+    assert "\nRole\nresearcher" in output
+    assert "\nFinal Result\nDONE" in output
+    assert stream["normalizedReportHeadings"] is True
     verify_artifacts(run_id, str(artifact_root))
 
 

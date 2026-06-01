@@ -161,3 +161,8 @@ def test_workflow_docs_do_not_expose_version_branding() -> None:
             haystack += "\n" + path.read_text(encoding="utf-8")
         for token in forbidden:
             assert token not in haystack, f"unexpected version branding token {token!r} in {rel}"
+
+
+def test_macos_shell_wrappers_use_zsh_shebang() -> None:
+    for path in (skill / "macos_scripts").glob("*.sh"):
+        assert path.read_text(encoding="utf-8").startswith("#!/bin/zsh\n"), path.name
