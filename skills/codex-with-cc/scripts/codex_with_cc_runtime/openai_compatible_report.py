@@ -238,7 +238,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
     base_url = _resolve_env_alias(
         ["DEEPSEEK_BASE_URL", "DEEPSEEK_API_BASE_URL", "OPENAI_BASE_URL", "OPENAI_COMPATIBLE_BASE_URL"],
         dotenv,
-        "https://api.openai.com/v1",
+        "https://api.deepseek.com",
     )
     model = _resolve_env_alias(
         ["DEEPSEEK_MODEL", "OPENAI_MODEL", "OPENAI_COMPATIBLE_MODEL"],

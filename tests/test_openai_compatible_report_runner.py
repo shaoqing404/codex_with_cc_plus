@@ -235,6 +235,7 @@ def test_openai_compatible_report_runtime_cli_subcommand(monkeypatch, tmp_path: 
     run_id = _find_run_id(artifact_root)
     config = json.loads((artifact_root / f"config_{run_id}.json").read_text(encoding="utf-8"))
     assert config["model"] == "deepseek-v4-flash"
+    assert config["apiBaseUrl"] == "https://api.deepseek.com"
     verify_artifacts(run_id, str(artifact_root))
 
 
