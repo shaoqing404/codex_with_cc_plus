@@ -312,7 +312,7 @@ function hasForbiddenEffort(serialized) {
 }
 
 function hasDirectClaudeCommand(serialized) {
-  return /(?:^|[\s;&|"'`])(?:\.\/|\.\\|[\w:/\\.-]*[/\\])?claude(?:\.cmd|\.exe)?(?=$|[\s;&|"'`])/i.test(serialized);
+  return /(?:^|[\n\r;&|`"'])\s*(?:\.\/|\.\\|[\w:/\\.-]*[/\\])?claude(?:\.cmd|\.exe)?(?:\s+(?:-|--|<|>|2>|&>|;|\||&&|\|\|)|\s*$|$)/i.test(serialized);
 }
 
 function validateWorkflowPayload(payload) {

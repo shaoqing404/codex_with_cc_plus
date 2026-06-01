@@ -92,7 +92,7 @@ Do not replace this with the default Codex subagent flow, a direct `claude` comm
 ## OpenAI-Compatible Report Runner
 `delegate_to_openai_compatible_report.*` is a report-only sibling runner for low-cost workflow judgment, preflight, audit summaries, acceptance reports, and report normalization. It uses the same task-file, workflow metadata, report headings, child-thread marker, and artifact verification contract as the Claude runner, but it must not execute shell tests, modify project files, or perform implementation work.
 
-Configure it with environment variables or a project `.env` file. Environment variables take precedence. By default it reads `DEEPSEEK_API_KEY`, uses base URL `https://api.deepseek.com`, and uses model `deepseek-v4-flash`. Supported overrides are `DEEPSEEK_BASE_URL` or `DEEPSEEK_API_BASE_URL`, and `DEEPSEEK_MODEL`; OpenAI-compatible aliases are also accepted. API keys must never be written to artifacts.
+Configure it with environment variables or a project `.env` file. Environment variables take precedence. By default it reads `DEEPSEEK_API_KEY`, uses base URL `https://api.deepseek.com`, uses model `deepseek-v4-flash`, and waits up to `600` seconds for long-running report model responses. Supported overrides are `DEEPSEEK_BASE_URL` or `DEEPSEEK_API_BASE_URL`, `DEEPSEEK_MODEL`, and `OPENAI_COMPATIBLE_TIMEOUT_SECONDS`; OpenAI-compatible aliases are also accepted. API keys must never be written to artifacts.
 
 ## Roles
 - Codex main thread: clarify intent, approve design, define task files, create child threads, review results, request rework, and decide final acceptance.

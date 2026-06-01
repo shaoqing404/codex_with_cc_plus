@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import re
+import socket
 import urllib.error
 import urllib.request
 import uuid
@@ -276,7 +277,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         dotenv,
         ns.model or "deepseek-v4-flash",
     )
-    timeout_seconds = int(_env_value("OPENAI_COMPATIBLE_TIMEOUT_SECONDS", dotenv, "60") or "60")
+    timeout_seconds = int(_env_value("OPENAI_COMPATIBLE_TIMEOUT_SECONDS", dotenv, "600") or "600")
     if not api_key:
         raise DelegateError(
             "Missing API key. Set DEEPSEEK_API_KEY, OPENAI_API_KEY, or OPENAI_COMPATIBLE_API_KEY in environment or project .env."
@@ -371,7 +372,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
             raise DelegateError("Model response has mismatched Status and Final Result.")
         if parse_report_role(report_text) != role:
             raise DelegateError(f"Model response role mismatch. Expected {role}.")
-    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, DelegateError, ValueError, json.JSONDecodeError) as exc:
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, socket.timeout, OSError, DelegateError, ValueError, json.JSONDecodeError) as exc:
         exit_code = 1
         failure_summary = _redact_secrets(str(exc), [api_key])
         report_text = _failure_report(role, failure_summary)

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import socket
 import sys
 from pathlib import Path
 
@@ -170,6 +171,7 @@ def test_openai_compatible_runner_writes_report_artifacts(monkeypatch, tmp_path:
     assert "Status\nDONE" in output
     assert config["runnerType"] == "openai_compatible_report"
     assert config["model"] == "deepseek-v4-flash"
+    assert config["timeoutSeconds"] == 600
     assert status["runnerType"] == "openai_compatible_report"
     assert workflow["runs"][run_id]["runnerType"] == "openai_compatible_report"
     assert status["status"] == "completed"
@@ -328,6 +330,38 @@ def test_openai_compatible_runner_redacts_secret_from_failure_artifacts(monkeypa
     combined = "\n".join(path.read_text(encoding="utf-8") for path in artifact_root.glob("*"))
     assert "env-secret" not in combined
     assert "<redacted>" in combined
+
+
+def test_openai_compatible_runner_structures_socket_timeout(monkeypatch, tmp_path: Path) -> None:
+    _clear_provider_env(monkeypatch)
+    _enable_child_thread(monkeypatch)
+    task_file = tmp_path / "task.md"
+    task_file.write_text(compliant_task("generate a report-only audit"), encoding="utf-8")
+    artifact_root = tmp_path / "artifacts"
+
+    def fake_urlopen(request, timeout=0):  # type: ignore[no-untyped-def]
+        raise socket.timeout("provider read timed out")
+
+    monkeypatch.setattr("urllib.request.urlopen", fake_urlopen)
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("DEEPSEEK_API_KEY", "env-key")
+
+    code = run_openai_compatible_report_delegate(_base_args(task_file, artifact_root))
+
+    assert code == 1
+    run_id = _find_run_id(artifact_root)
+    output = (artifact_root / f"report_{run_id}.md").read_text(encoding="utf-8")
+    config = json.loads((artifact_root / f"config_{run_id}.json").read_text(encoding="utf-8"))
+    status = json.loads((artifact_root / f"status_{run_id}.json").read_text(encoding="utf-8"))
+    stream = json.loads((artifact_root / f"stream_{run_id}.jsonl").read_text(encoding="utf-8"))
+    assert "Status\nFAIL" in output
+    assert status["status"] == "failed"
+    assert status["exitCode"] == 1
+    assert status["failureDisposition"] == "NEED_HUMAN_INTERVENTION"
+    assert status["failureSummary"] == "provider read timed out"
+    assert config["failureSummary"] == status["failureSummary"]
+    assert stream["status"] == "error"
+    verify_artifacts(run_id, str(artifact_root))
 
 
 def test_openai_compatible_report_cli_requires_api_key(monkeypatch, tmp_path: Path, capsys) -> None:
