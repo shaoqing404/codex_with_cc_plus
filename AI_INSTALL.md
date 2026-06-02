@@ -47,15 +47,22 @@ Codex 主线程 -> Codex spawn_agent 子线程 -> 已安装插件中的 delegate
 
 插件声明 `./hooks/hooks.json`。宿主启用 Codex hooks 后，`SessionStart` 注入完整契约，`UserPromptSubmit` 遇到触发词时再次注入，`PreToolUse` 拦截直接 `claude`、主线程直接 `delegate_to_claude.*`、缺少 `CODEX_CLAUDE_CHILD_THREAD=1`、缺少 `-TaskFile`、缺少 workflow metadata、缺少 `-SessionKey`、旧式 `-Task`、旧式 `-Mode`、reviewer 缺少 review metadata、以及并行写任务无 `-Scope`。
 
-## 分发源
+## 分发源与手动安装策略
 
-唯一分发入口：
+> [!WARNING]
+> 本仓库已完全迁移至新非 Fork 独立仓库：**[shaoqing404/codex_with_cc_plus](https://github.com/shaoqing404/codex_with_cc_plus)**。
+> 由于独立的 Skill 并非 Marketplace 根树，通过 `codex plugin marketplace add` 会遇到错误，因此 AI 安装代理必须通过以下本地手动分发方式运行：
 
+唯一手动分发与导入入口：
 ```text
-Marketplace repo: https://github.com/aiskyhub/aiskyhub
-Codex marketplace source: .agents/plugins/marketplace.json
-Plugin name: codex-with-cc@aiskyhub
+Source Repository: git@github.com:shaoqing404/codex_with_cc_plus.git
+Target Local Skill Path: ~/.codex/skills/codex-with-cc
 ```
+
+### AI 自动手动安装策略：
+1. **源码拉取**：将 `shaoqing404/codex_with_cc_plus` 克隆到临时目录中。
+2. **Skill 拷贝**：将克隆目录下的 `skills/codex-with-cc` 文件夹整体复制到用户的 `$HOME/.codex/skills/` 目录下（若目录不存在则先创建）。
+3. **残留清理**：自动清理原项目下的旧文件，并确认本地个人 skills 中无其他重名冲突。
 
 ## 旧版安装残留清理
 
