@@ -10,6 +10,10 @@ def test_ai_install_doc_contract() -> None:
     legacy_scope_phrase = "".join(("全局", " skill"))
     compat_phrase = "".join(("兼容", "路径"))
 
+    assert "codex_with_cc_plus" in text
+    assert "shaoqing404/codex_with_cc_plus" in text
+    assert ".codex-plugin/plugin.json" in text
+    assert "skills/codex-with-cc/manifest.json" not in text
     assert "[marketplaces.aiskyhub]" in text
     assert '[plugins."codex-with-cc@aiskyhub"]' in text
     assert "如果宿主环境还没有安装 `codex` CLI，先自动安装官方 CLI，再继续后续步骤。" in text
@@ -21,6 +25,7 @@ def test_ai_install_doc_contract() -> None:
     assert "如果 `npm` 不存在、CLI 安装失败、或安装后仍然无法调用 `codex`，直接报告失败并停止，不要跳过这一步继续执行。" in text
     assert "codex plugin marketplace add aiskyhub/aiskyhub" in text
     assert "codex-with-cc@aiskyhub" in text
+    assert "codex-with-cc-plus@shaoqing404" in text
     assert "--scope user" in text
     assert "$codex-with-cc" in text
     assert "docs/codex_with_cc" in text
@@ -48,12 +53,14 @@ def test_ai_install_doc_contract() -> None:
     assert "verify_delegate_workflow" in text
     assert "<installed-workflow-root>" in text
     assert "<installed-plugin-root>" not in text
+    assert "marketplace-only" not in text
     assert ".claude-plugin/marketplace.json" not in text
     assert "/plugin marketplace list" not in text
     assert "claude plugin marketplace list" not in text
     assert "/plugin marketplace add aiskyhub/aiskyhub" not in text
     assert "/reload-plugins" not in text
     assert "## 安装或更新完成后告知用户" in text
+    assert "只有用户明确要求继续使用本地 fallback 时，才复制 `skills/codex-with-cc` 到本地 skill 目录。" in text
     assert "不要只说“好了”或“已完成”" in text
     assert f"{legacy_installer_stem}.ps1" not in text
     assert f"{legacy_installer_stem}.sh" not in text

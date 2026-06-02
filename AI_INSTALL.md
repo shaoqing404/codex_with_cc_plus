@@ -1,6 +1,6 @@
-# AI 安装说明
+# AI 安装与市场注册说明
 
-本文件是 `codex_with_cc` 的 marketplace-only 安装契约，给 AI 执行安装或更新时使用。README 的安装提示保持不变；不要修改 README。
+本文件是 `codex_with_cc_plus` 的 Codex 安装、更新与市场注册契约，给 AI 执行安装或维护时使用。当前维护仓库是 `shaoqing404/codex_with_cc_plus`，Codex 插件 manifest 是 `.codex-plugin/plugin.json`。
 
 ## 默认交互策略
 
@@ -10,12 +10,12 @@
 2. 如果检测到旧版脚本安装残留，先清理项目下旧安装产物和用户级旧版 `codex-with-cc` skill，再继续 marketplace 安装。
 3. 默认执行用户级安装，除非用户明确要求项目级。
 4. 如果宿主环境还没有安装 `codex` CLI，先自动安装官方 CLI，再继续后续步骤。
-5. marketplace 或插件安装失败时停止并报告，不复制仓库文件、不恢复旧脚本、不写旧目录。
+5. marketplace 或插件安装失败时先报告失败原因；如果用户要求继续，允许使用本地手动 skill 绑定作为临时路径。
 6. 必要时提醒用户重载插件列表或重启宿主。
 
 ## 目标
 
-把本仓库安装为 `aiskyhub/aiskyhub` marketplace 下的用户级 Codex 插件，使所有 child-agent、subagent、sub-agent、child-thread、subthread、delegation、worker-execution、子代理、子线程、多代理、委派、派工或执行层请求都触发 `$codex-with-cc`。
+把本仓库安装为用户级 Codex 插件或本地用户 skill，使所有 child-agent、subagent、sub-agent、child-thread、subthread、delegation、worker-execution、子代理、子线程、多代理、委派、派工或执行层请求都触发 `$codex-with-cc`。
 
 Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger.
 
@@ -47,19 +47,56 @@ Codex 主线程 -> Codex spawn_agent 子线程 -> 已安装插件中的 delegate
 
 插件声明 `./hooks/hooks.json`。宿主启用 Codex hooks 后，`SessionStart` 注入完整契约，`UserPromptSubmit` 遇到触发词时再次注入，`PreToolUse` 拦截直接 `claude`、主线程直接 `delegate_to_claude.*`、缺少 `CODEX_CLAUDE_CHILD_THREAD=1`、缺少 `-TaskFile`、缺少 workflow metadata、缺少 `-SessionKey`、旧式 `-Task`、旧式 `-Mode`、reviewer 缺少 review metadata、以及并行写任务无 `-Scope`。
 
-## 分发源与手动安装策略
+## 分发源、市场注册与本地安装策略
 
 > [!WARNING]
 > 本仓库已完全迁移至新非 Fork 独立仓库：**[shaoqing404/codex_with_cc_plus](https://github.com/shaoqing404/codex_with_cc_plus)**。
-> 由于独立的 Skill 并非 Marketplace 根树，通过 `codex plugin marketplace add` 会遇到错误，因此 AI 安装代理必须通过以下本地手动分发方式运行：
+> 市场注册必须使用 `.codex-plugin/plugin.json`，不要写不存在的 skill-level manifest 路径。
 
-唯一手动分发与导入入口：
+插件源信息：
 ```text
 Source Repository: git@github.com:shaoqing404/codex_with_cc_plus.git
+Plugin Manifest: .codex-plugin/plugin.json
 Target Local Skill Path: ~/.codex/skills/codex-with-cc
 ```
 
-### AI 自动手动安装策略：
+### 公共市场注册项
+
+向公共市场 `aiskyhub/aiskyhub` 注册时，在其 marketplace 索引中添加或更新：
+
+```json
+{
+  "name": "codex-with-cc",
+  "description": "Codex with delegated Claude Code worker orchestration workflow",
+  "version": "1.0.6",
+  "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
+  "manifest": ".codex-plugin/plugin.json"
+}
+```
+
+### 个人市场注册项
+
+自建个人市场 `shaoqing404/marketplace` 时，推荐使用别名 key，避免和公共市场身份混淆：
+
+```json
+{
+  "marketName": "shaoqing404",
+  "plugins": {
+    "codex-with-cc-plus@shaoqing404": {
+      "name": "codex-with-cc-plus",
+      "description": "Codex with delegated Claude Code worker orchestration workflow",
+      "version": "1.0.6",
+      "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
+      "manifest": ".codex-plugin/plugin.json"
+    }
+  }
+}
+```
+
+### AI 自动本地安装策略
+
+当 marketplace 尚未注册、安装失败且用户要求继续，才使用本地手动安装：
+
 1. **源码拉取**：将 `shaoqing404/codex_with_cc_plus` 克隆到临时目录中。
 2. **Skill 拷贝**：将克隆目录下的 `skills/codex-with-cc` 文件夹整体复制到用户的 `$HOME/.codex/skills/` 目录下（若目录不存在则先创建）。
 3. **残留清理**：自动清理原项目下的旧文件，并确认本地个人 skills 中无其他重名冲突。
@@ -86,7 +123,7 @@ Target Local Skill Path: ~/.codex/skills/codex-with-cc
 
 如果这些路径存在，先删除，再继续 marketplace 安装。不要保留旧 skill 作为回退。
 
-## Codex 安装协议
+## Codex Marketplace 安装协议
 
 当前仓库只提供 Codex 插件入口，不提供 Claude 宿主插件配置。
 
@@ -277,7 +314,7 @@ dry-run 成功后，默认应能在当前项目看到 `.codex/codex_with_cc/clau
 - marketplace 添加失败：直接报告失败并停止。
 - 插件安装失败：直接报告失败并停止。
 - 自检或 dry-run 委派失败：直接报告失败并停止。
-- 不要复制仓库文件到任何本地 skill 目录。
+- 只有用户明确要求继续使用本地 fallback 时，才复制 `skills/codex-with-cc` 到本地 skill 目录。
 - 不要创建或恢复旧的安装脚本路径。
 - 不要把失败处理成“先手动复制再说”。
 
@@ -287,9 +324,12 @@ dry-run 成功后，默认应能在当前项目看到 `.codex/codex_with_cc/clau
 
 - 这次是安装成功、更新成功，还是只完成了前置检查。
 - 是否新增了 `aiskyhub` marketplace。
+- 是否使用了 `shaoqing404/marketplace` 个人市场。
 - 是否清理了项目下旧安装产物。
 - 是否清理了用户级旧版 `codex-with-cc` skill。
 - `codex-with-cc@aiskyhub` 是否已经安装或更新完成。
+- 如果走个人市场，`codex-with-cc-plus@shaoqing404` 是否已经安装或更新完成。
+- 如果走本地 fallback，`$HOME/.codex/skills/codex-with-cc` 是否已经更新完成。
 - 是否运行了 runtime/session-pool 自检和 dry-run 委派验证。
 - 是否需要用户执行 `/plugin install codex-with-cc@aiskyhub --scope user`。
 - 是否需要用户重载插件列表或重启 Codex。

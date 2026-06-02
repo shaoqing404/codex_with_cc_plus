@@ -1,6 +1,6 @@
 # Codex Plugin Layout
 
-This repository ships as a Codex plugin, with marketplace-first distribution through `aiskyhub/aiskyhub`.
+This repository ships as a Codex plugin from the independent repository `shaoqing404/codex_with_cc_plus`. It can be installed from a Codex marketplace once that marketplace indexes `.codex-plugin/plugin.json`, or copied locally as a user skill while marketplace registration is pending.
 
 ## Structure
 
@@ -19,5 +19,6 @@ The delegated runtime, hook gate, and contract tests assume that `skills/codex-w
 ## Installation paths
 
 - Source layout: this repository exposes `.codex-plugin/plugin.json` so it can be recognized as a Codex plugin source.
-- Distribution path: install `codex-with-cc` from the `aiskyhub/aiskyhub` marketplace for Codex.
-- No script-based cross-project installer is provided by this repository anymore.
+- Public marketplace path: register `codex-with-cc` in `aiskyhub/aiskyhub` with repository `https://github.com/shaoqing404/codex_with_cc_plus.git` and manifest `.codex-plugin/plugin.json`.
+- Personal marketplace path: register an alias such as `codex-with-cc-plus@shaoqing404` in `shaoqing404/marketplace`, also pointing at `.codex-plugin/plugin.json`.
+- Local fallback path: clone this repository and copy `skills/codex-with-cc` to `$HOME/.codex/skills/codex-with-cc`.

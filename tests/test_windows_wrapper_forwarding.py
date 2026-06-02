@@ -107,6 +107,15 @@ def make_fake_claude_bin(root: Path) -> Path:
         "exit /b 0\n",
         encoding="utf-8",
     )
+    fake = fake_bin / "claude"
+    fake.write_text(
+        "#!/usr/bin/env sh\n"
+        "cat >/dev/null\n"
+        f"printf '%s\\n' '{assistant_record}'\n"
+        f"printf '%s\\n' '{result_record}'\n",
+        encoding="utf-8",
+    )
+    fake.chmod(0o755)
     return fake_bin
 
 

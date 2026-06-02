@@ -1,8 +1,8 @@
-# CODEX HANDOVER CONTRACT: codex_with_cc_plus
+# CODEX HANDOVER CONTRACT: codex_with_cc_plus [COMPLETED]
 
 > [!IMPORTANT]
 > **致 Codex 主线程 / 代理 Leader：**
-> 本项目已正式进行架构重构与物理迁移。原 Fork 属性的仓库已归档停止维护。
+> 本项目已正式进行架构重构与物理迁移。
 > 所有的后续开发及分发归属于全新的独立非 Fork 仓库：
 > 👉 **[shaoqing404/codex_with_cc_plus](https://github.com/shaoqing404/codex_with_cc_plus)**
 > 请仔细阅读本交接契约，并协助用户完成后续的文档优化与市场注册工作。
@@ -13,9 +13,9 @@
 
 ### 任务一：协助修改并在目标项目集成新版 README / AI_INSTALL
 1. **路径与重定向核验**：
-   - 检查 `README.md` 与 `AI_INSTALL.md` 中的所有 Git 连接、克隆地址及 Skill 路径，确保均已由旧的 `shaoqing404/codex_with_cc` 完美平移至新仓库 `shaoqing404/codex_with_cc_plus`。
+   - 检查 `README.md` 与 `AI_INSTALL.md` 中的所有 Git 连接、克隆地址及 Skill 路径，确保均已平移至新仓库 `shaoqing404/codex_with_cc_plus`。
 2. **项目本地绑定**：
-   - 当用户在你所管理的项目中输入：“请把本地 `~/.codex/skills/codex-with-cc` 子代理工作流绑定并应用到我当前的项目中”时，请自动识别本地手动拷贝的 Skill 模块并正确建立与 `.codex/` 路径的调用绑定，跳过原先的 marketplace 线上拉取步骤。
+   - 当用户在你所管理的项目中输入：“请把本地 `~/.codex/skills/codex-with-cc` 子代理工作流绑定并应用到我当前的项目中”时，请自动识别本地手动拷贝的 Skill 模块并正确建立与 `.codex/` 路径的调用绑定。若 marketplace 已注册，则优先使用 marketplace 安装。
 
 ---
 
@@ -30,9 +30,9 @@
 {
   "name": "codex-with-cc",
   "description": "Codex with delegated Claude Code worker orchestration workflow",
-  "version": "1.0.0",
+  "version": "1.0.6",
   "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-  "manifest": "skills/codex-with-cc/manifest.json"
+  "manifest": ".codex-plugin/plugin.json"
 }
 ```
 
@@ -46,9 +46,9 @@
        "codex-with-cc-plus@shaoqing404": {
          "name": "codex-with-cc-plus",
          "description": "Codex with delegated Claude Code worker orchestration workflow",
-         "version": "1.0.0",
+         "version": "1.0.6",
          "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-         "manifest": "skills/codex-with-cc/manifest.json"
+         "manifest": ".codex-plugin/plugin.json"
        }
      }
    }
@@ -62,6 +62,6 @@
 ---
 
 ## 🔍 终审与验收准则
-- 所有的说明文档中无任何指向已归档仓库 `shaoqing404/codex_with_cc` 的死链。
+- 所有的说明文档中无任何指向旧仓库的死链。
 - 新增的 `.env` 环境变量配置指南能被用户和新安装实例正确读取。
-- 引导完毕后，将本交接契约 `CODEX_HANDOVER.md` 标记为 `[COMPLETED]`。
+- 本交接契约 `CODEX_HANDOVER.md` 已标记为 `[COMPLETED]`。

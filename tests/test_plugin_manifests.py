@@ -19,6 +19,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
     codex_plugin = json.loads(codex_plugin_path.read_text(encoding="utf-8"))
     assert codex_plugin["name"] == "codex-with-cc"
     assert codex_plugin["version"] == "1.0.6"
+    assert codex_plugin["repository"] == "https://github.com/shaoqing404/codex_with_cc_plus"
     assert codex_plugin["skills"] == "./skills/"
     assert codex_plugin["hooks"] == "./hooks/hooks.json"
     assert (repo / "hooks" / "hooks.json").exists()
@@ -34,12 +35,13 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert any("aiskyhub/aiskyhub" in prompt for prompt in codex_interface["defaultPrompt"])
 
     assert "[AI_INSTALL.md](AI_INSTALL.md)" in readme_text
-    assert "https://github.com/aiskyhub/codex_with_cc" in readme_text
+    assert "https://github.com/shaoqing404/codex_with_cc_plus" in readme_text
+    assert ".codex-plugin/plugin.json" in readme_text
     assert "安装或更新" in readme_text
-    assert "当前 Codex 环境" in readme_text
     assert compat_install_phrase not in readme_text
 
-    assert "marketplace-only" in ai_install_text
+    assert "marketplace-only" not in ai_install_text
+    assert ".codex-plugin/plugin.json" in ai_install_text
     assert "不是仓库主身份" not in ai_install_text
     assert legacy_scope_phrase not in ai_install_text
     assert "当前仓库只提供 Codex 插件入口，不提供 Claude 宿主插件配置。" in ai_install_text
