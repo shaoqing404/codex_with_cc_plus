@@ -1,87 +1,117 @@
-> [!IMPORTANT]
-> **当前维护仓库**
-> 本项目现在由独立仓库 **[shaoqing404/codex_with_cc_plus](https://github.com/shaoqing404/codex_with_cc_plus)** 维护。
-> 后续集成、安装、环境配置、插件市场注册与新代码开发均以该仓库为准。
+# Codex With CC Plus
 
-> 如果你是 Codex，并且用户让你把本仓库集成到某个项目里：请阅读 [AI_INSTALL.md](AI_INSTALL.md)。
->
-> 下面内容是给人看的，AI无需阅读。
+Codex With CC Plus is an auditable multi-worker workflow for Codex: Codex stays the planner and final judge, while expensive implementation work is delegated through Claude Code, and low-cost report/audit work can run through DeepSeek Flash or another OpenAI-compatible API.
 
-# Codex 穷鬼大救星！
+If you are Codex and the user asks you to install or update this workflow, read [AI_INSTALL.md](AI_INSTALL.md).
 
-大家也知道，Codex 现在模型越来越叼，干活越来越猛，写代码、拆任务、审方案那叫一个丝滑。
+![Codex With CC Plus execution chain](docs/assets/codex-with-cc-plus-chain.svg)
 
-但问题也很现实：模型越叼，额度烧起来越快。
+![Codex With CC Plus state machine](docs/assets/codex-with-cc-plus-state-machine.svg)
 
-穷则思变，富则...算了，富哥就不需要用这套工作流了！
+## What It Does
 
-于是有了这套穷鬼工作流：让 Codex 继续当最聪明的 leader，负责规划、拆解、调度和验收；真正吃 token 的脏活累活，交给 Codex 子代理里的 Claude Code，再通过 CC Switch 把后端切到 DeepSeek。
+Codex With CC Plus turns a vague “use subagents” request into a controlled workflow:
 
-这样一来，Codex Plus 基本就可以爽用无忧。主线程保持清醒，子代理疯狂干活，DeepSeek 靠夸张缓存命中率把成本压下去，长任务、多代理、大范围代码探索都能放开玩。
+- Codex main thread plans the task graph, defines scope, reviews evidence, and decides final acceptance.
+- Task files make worker intent explicit: `Goal`, `Allowed Scope`, `Forbidden Actions`, `Acceptance Criteria`, `Verification`, and `Report Requirements`.
+- `validate_delegate_task.*` is a local deterministic zero-token hard gate before dispatch.
+- Implementation workers run through `delegate_to_claude.* -> Claude Code CLI`.
+- Report-only workers run through `delegate_to_openai_compatible_report.* -> DeepSeek Flash / OpenAI-compatible API`.
+- Every run writes artifacts: `config`, `status`, `prompt`, `stream`, `trace`, `report`, and workflow aggregate JSON.
+- `ccviz` lets you inspect workflow status, topology, cost, stale runs, and review/audit gates.
 
-这一切都基于 DeepSeek 的离谱低价！六千万token的使用量，缓存命中98.5%，花费俩块钱，按照这套工作流，有codex统筹规划和结果验收，子代理只需要无脑干活，用deepseek 4 flash模型都绰绰有余。
+The big idea is simple: let workers do the noisy work, but keep accountability with Codex main thread and the human.
 
+## Why It Exists
 
-![ChatGPT Image 2026年5月6日 22_22_26](https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260506222630165.png)
+Large AI coding tasks often fail in boring ways: the main agent gets buried in logs, worker context is implicit, parallel writes overlap, reviews trust summaries too much, and long implementation runs make the main thread wait while nothing useful happens.
 
-DeepSeek的api价格表，缓存命中0.02元/百万token，这和白送有什么区别？这个缓存命中折扣好像是永久折扣，没有时间限制。
+Codex With CC Plus gives that process a state machine. It is not a magic prompt. It is a small protocol for task files, child-thread dispatch, deterministic validation, artifacts, review gates, and final acceptance.
 
+## Learning Relationship
 
-![ChatGPT Image 2026年5月6日 22_10_26](https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260506222657005.png)
+This project learns from and references the original `codex-with-cc` / Codex with CC workflow idea: Codex as leader, Claude Code as execution worker, and a cheaper model layer for high-volume reasoning. Codex With CC Plus is an independent continuation focused on stricter artifacts, OpenAI-compatible report runners, `ccviz` observability, and marketplace/plugin distribution.
 
-**人民的 DeepSeek，小 D 的恩情还不完😭**
+If you reuse this work, preserve the attribution and the MIT license.
 
-<img src="https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260504115715483.png" alt="ChatGPT Image 2026年5月4日 11_53_50" style="zoom: 50%;" />
+## Platform Recommendation
 
-# 你需要先准备什么
+Use macOS first.
 
-1. 安装 Claude Code。
-2. 安装 CC Switch。
-3. 在 CC Switch 里把 Claude Code 的后端 API 切到 DeepSeek。
-4. 准备一个你想接入这套工作流的目标项目。
-5. 打开 Codex；如果本机还没有 `codex` CLI，就先让 Codex 按官方命令自动安装。
+强烈建议优先在 macOS 使用。
 
-没有 `codex` CLI 也不用慌，按上面的安装口令交给 Codex，它会先把自己的官方 CLI 装好，再继续接入这套工作流。
+The main development path, real long-running worker path, shell wrappers, and runtime self-tests are maintained primarily on macOS. Windows wrappers are kept as thin compatibility entrypoints and are tested, but they are not the recommended first-line operating environment.
 
-> [!NOTE]
-> **强烈建议优先在 macOS 使用。**
-> 这套工作流目前的主力验证路径、日常开发路径和真实长任务路径都在 macOS 上跑通；Windows wrapper 保留为 thin wrapper 和兼容性测试入口，但不是推荐的一线使用方式。想少踩坑，就先用 Mac。
+## Mental Model
 
-# 安装说明
-
-本仓库已经提供 Codex 插件 manifest：`.codex-plugin/plugin.json`。因此有两种维护入口：
-
-- **Marketplace 注册后安装**：由 Codex marketplace 索引 `shaoqing404/codex_with_cc_plus` 的 `.codex-plugin/plugin.json`。
-- **本地手动安装**：在 marketplace 注册完成前，克隆仓库并复制 `skills/codex-with-cc` 到本机 Codex skills 目录。
-
-给 Codex 的安装/更新口令：
 ```text
-请把 https://github.com/shaoqing404/codex_with_cc_plus 子代理工作流安装或更新到当前 Codex 环境。
+Task file format check
+-> local validate_delegate_task.*
+-> zero-token deterministic hard gate
+
+Implementation task
+-> Codex child thread
+-> delegate_to_claude.*
+-> Claude Code CLI
+-> structured report
+
+Report / audit task
+-> Codex child thread
+-> delegate_to_openai_compatible_report.*
+-> DeepSeek Flash or compatible OpenAI API
+-> structured report
+
+Final judgment
+-> Codex main thread + human
+-> verify artifacts, review diffs, accept or rework
 ```
 
-### 方式 A：Marketplace 安装
+Long implementation tasks should be allowed to finish. Do not make Codex main thread sleep and babysit. Record `RunId`, `statusPath`, `rawStreamPath`, and `tracePath`, then reconnect through `ccviz show`, `ccviz audit`, or status JSON checkpoints.
 
-如果公共市场已经注册：
+main 不要干烧。
+
+Optional controls such as `-MaxBudgetUsd`, `-MaxTurns`, and `-IncludePartialMessages` are explicit observability or emergency brake tools. They are not default limits.
+
+## State Machine
+
+1. **Intent**: the user asks for child-agent / subagent / delegation / 子代理 / 委派 / 多代理 work.
+2. **Plan**: Codex main thread creates scoped TaskFiles.
+3. **Validate**: local `validate_delegate_task.*` checks structure and metadata.
+4. **Dispatch**: Codex creates a child thread with `model: gpt-5.4-mini`, `reasoning_effort: medium`, and `fork_context: false`.
+5. **Run**: child thread calls exactly one delegate runner with `CODEX_CLAUDE_CHILD_THREAD=1`.
+6. **Artifact**: runner writes config/status/prompt/stream/trace/report/workflow artifacts.
+7. **Review**: reviewers verify spec and quality; final verifier checks aggregate evidence.
+8. **Accept or Rework**: Codex main thread and human decide.
+
+## Install
+
+### Marketplace
+
+When the public marketplace entry is available:
+
 ```bash
 codex plugin marketplace add aiskyhub/aiskyhub
 ```
 
-然后在 Codex 中执行：
+Then in Codex:
+
 ```text
 /plugin install codex-with-cc@aiskyhub --scope user
 ```
 
-如果使用个人市场：
+Personal marketplace form:
+
 ```bash
 codex plugin marketplace add shaoqing404/marketplace
 ```
 
-然后在 Codex 中执行：
+Then in Codex:
+
 ```text
 /plugin install codex-with-cc-plus@shaoqing404 --scope user
 ```
 
-Marketplace 索引项必须指向：
+Marketplace source should point at:
 
 ```json
 {
@@ -90,160 +120,121 @@ Marketplace 索引项必须指向：
 }
 ```
 
-### 方式 B：本地手动安装
+### Local Fallback
 
-#### 1. 克隆新仓库
 ```bash
 git clone git@github.com:shaoqing404/codex_with_cc_plus.git
+mkdir -p ~/.codex/skills
+cp -r codex_with_cc_plus/skills/codex-with-cc ~/.codex/skills/
 ```
 
-#### 2. 拷贝 Skill 模块至本地个人配置
-- **macOS / Linux**：
-  ```bash
-  mkdir -p ~/.codex/skills
-  cp -r codex_with_cc_plus/skills/codex-with-cc ~/.codex/skills/
-  ```
+Then ask Codex inside your target project:
 
-- **Windows (PowerShell)**：
-  ```powershell
-  New-Item -ItemType Directory -Force -Path "$HOME\.codex\skills"
-  Copy-Item -Recurse -Force -Path ".\codex_with_cc_plus\skills\codex-with-cc" -Destination "$HOME\.codex\skills\"
-  ```
-
-#### 3. 一句话集成（在你的具体项目里）
-将以下口令抛给当前项目里的 Codex：
 ```text
 请把本地 ~/.codex/skills/codex-with-cc 子代理工作流绑定并应用到我当前的项目中。
 ```
 
----
+Repository install/update prompt:
 
-# 子代理环境变量与 .env 配置
+```text
+请把 https://github.com/shaoqing404/codex_with_cc_plus 子代理工作流安装或更新到当前 Codex 环境。
+```
 
-为了能顺利调用 DeepSeek 等 OpenAI 兼容大模型进行轻量级预检、审计与汇报，你必须在**项目的根目录下**创建一个 `.env` 文件，或者在你的操作系统中配置相应的环境变量。
+## Environment
 
-### `.env` 配置文件范例：
+For report-only workers and task-file assist:
+
 ```env
-# [必填] 你的 API 密钥（支持 DeepSeek 或兼容的 OpenAI/OpenAI Compatible 密钥）
-DEEPSEEK_API_KEY=sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-
-# [选填] 接口基础 URL，默认为官方 DeepSeek 接口地址
+DEEPSEEK_API_KEY=sk-...
 DEEPSEEK_BASE_URL=https://api.deepseek.com
-
-# [选填] 目标执行模型，默认为 deepseek-v4-flash
 DEEPSEEK_MODEL=deepseek-v4-flash
-
-# [选填] 响应最大超时时间（秒），默认为 600
 OPENAI_COMPATIBLE_TIMEOUT_SECONDS=600
 ```
 
-> [!NOTE]
-> 密钥解析别名自动支持：系统同时支持 `OPENAI_API_KEY` 或 `OPENAI_COMPATIBLE_API_KEY`。
-> 在运行过程中，任何生成的本地审计 Artifact（如 config 或 status JSON）中**均会自动脱敏并隐蔽 API Key 信息**，防范敏感密钥泄露。
+Supported API key aliases include `OPENAI_API_KEY` and `OPENAI_COMPATIBLE_API_KEY`. API keys must never be written to artifacts.
 
-# 效果
+## Start Prompts
 
-- 提示词
-
-```
-你现在委派三个子代理，让他们深度分析项目，给出项目中的优化计划书，对于三份计划书中矛盾的点，需要反复打回让他们再去验证再去制定，直到一致，然后你汇总出一份优化计划书。
-```
-
-- 创建子代理
-
-![image-20260504101914934](https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260504104419123.png)
-
-- 子代理执行Claude cli
-
-![image-20260504101840375](https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260504104430267.png)
-
-- 结果打回，重新验证
-
-![image-20260504103024065](https://raw.githubusercontent.com/xdd666t/MyData/master/pic/flutter/blog/20260504104439475.png)
-
-# 使用姿势
-
-核心心法只有一句：让 Codex 做 leader，让子代理当大头兵。
-
-你可以这样安排活：
+Use these prompts to trigger the workflow:
 
 ```text
-你拆解 xxx 任务，安排给多个子代理实现。你负责审核子代理结果，不符合要求就打回让他们重改，直到符合要求为止。
+你负责拆解、派工、审核和最终交付。请把这个任务拆成多个 codex-with-cc 子代理任务，每个任务必须有 TaskFile、Allowed Scope、Forbidden Actions、Verification 和 Report Requirements。实现型任务走 Claude Code，报告/审计型任务走 DeepSeek Flash。你负责最终验收，不要让 worker 自己扩大范围。
 ```
-
-适合大任务拆分：
 
 ```text
-你先阅读项目，拆成 3 个互不冲突的实现任务，分别交给子代理处理。每个子代理必须给出变更文件、验证命令和风险说明。你最后统一 review、整合，并跑最终验证。
+请用 codex-with-cc 多子线程流程审计这个项目：一个 researcher 查架构，一个 researcher 查测试风险，一个 planner 给改造计划，一个 reviewer 攻击计划漏洞。所有报告必须可追踪到 artifacts，最后你汇总结论和下一步实现 prompt。
 ```
-
-适合多方案头脑风暴：
 
 ```text
-请启动多个子代理分别提出 xxx 的实现方案。每个方案需要说明优缺点、复杂度、风险和迁移成本。你汇总后给出推荐方案，不要直接照抄任何一个子代理。
+请安排一个 implementer 子代理实现最小改动，再安排 spec reviewer 和 quality reviewer 分别审查。review 不通过就打回返工。最后跑 verify_delegate_workflow 和项目测试后再交付。
 ```
-
-适合互相找茬：
 
 ```text
-安排一个子代理实现 xxx，再安排另一个子代理专门做代码审查和边界情况攻击。你负责判断 review 是否成立，成立就打回实现代理修改，不成立就说明理由。
+这个任务可能很长。请拆成互不冲突的 worker scope，允许 Claude Code worker 长跑完成正式报告；主线程不要 sleep 陪跑，只记录 RunId/status/stream/trace，并用 ccviz 做检查点接管。
 ```
 
-适合长上下文探索：
+## Common Commands
 
-```text
-请把项目里的 xxx 模块交给子代理做深度调查，要求输出调用链、关键文件、潜在风险和建议修改点。你只保留结论，别把所有噪音塞回主上下文。
+Validate a TaskFile:
+
+```bash
+./skills/codex-with-cc/macos_scripts/validate_delegate_task.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
+  -Role implementer \
+  -Tests "pytest -q"
 ```
 
-# 这不是提示词玩具
+Run an implementation worker from a trusted fallback terminal:
 
-它内置了 Claude session 复用池：`PrimaryReuse` 负责串行主会话续跑，`PrimaryAnchor` 负责并行批次的上下文锚点，`ParallelPool` 负责独立支线任务的会话池化。简单说，就是尽量让相似任务复用稳定 session，把上下文热起来，把 DeepSeek/Claude Code 的缓存命中率吃满。长任务不再每次冷启动，重复阅读、重复建模、重复烧 token 的部分能少一点是一点。
-
-它还有任务指纹、租约锁和会话回收机制：每次委派都会基于任务内容、作用域和验证命令生成 fingerprint；并行 worker 通过 lease 管理 session 占用；卡死、过期、进程消失的 lease 会被识别和回收。听起来像后端服务调度那套东西，对，它就是把那套脏活搬到了 AI 子代理调度里。
-
-同时，委派链路不是“让 AI 自觉点”这种玄学约束。脚本会检查 `CODEX_CLAUDE_CHILD_THREAD=1`，强制 Claude Code 委派只能发生在 Codex 子线程里；主线程不能直接下场跑 `claude`，避免上下文污染、审计断链和结果没人兜底。Codex 主线程只做规划、派工、review、返工裁决，子代理才是执行层。
-
-每次运行还会落审计产物：`config_<RunId>.json`、`status_<RunId>.json`、`prompt_<RunId>.md`、`stream_<RunId>.jsonl`、`trace_<RunId>.log`、`claude_<RunId>.md`。也就是说，任务怎么发出去的、用了哪个 session、有没有 resume、输出是什么、链路有没有断，都能查。不是“AI 说它干了”，而是有 artifacts 能验尸。
-
-长实现任务的设计哲学是：给 Claude Code 足够授权和时间，让它真正完成任务后再返回正式报告；不要让 Codex 主线程用 `sleep` 陪跑、隔几分钟自言自语式检查。主线程应该拿到 `RunId`、`status_<RunId>.json`、`stream_<RunId>.jsonl`、`trace_<RunId>.log` 后，用 `ccviz show` / `ccviz audit` 或状态 JSON 做检查点式接管。worker 可以长跑，main 不要干烧。
-
-如果你确实想给异常长跑加保险，可以显式传 `-MaxBudgetUsd` 或 `-MaxTurns`，也可以用 `-IncludePartialMessages` 让 stream 更细；这些是人工熔断/观测工具，不是默认限制。默认心法仍然是：拆好边界，放权执行，回来严格 review。
-
-最后还有验证脚本兜底：运行时验证、session pool 验证、artifact 验证、delegate chain 验证都配好了。多子代理并行不是凭感觉开派对，而是有 session state、RunId、SessionKey、artifact root 和链路校验把它们串起来。逼格说法叫：可审计、可复用、可并发、可回放的多代理委派协议。、
-
-人话说法叫：让 Codex 当老板的时候，至少给它配了办公室制度和打卡机。
-
-# 这套工作流到底在干嘛
-
-主 Codex 线程负责理解需求、拆任务、创建子代理、审核结果、打回返工和最终交付。
-
-Codex 子代理负责作为可追踪的对话树节点，调用委派脚本，把具体实现、调查、审查这些高 token 消耗任务交给 Claude Code CLI。
-
-Claude Code CLI 负责执行被委派的具体任务，按要求修改文件或做调查，运行验证，并输出结构化报告。
-
-这样主线程不会被海量代码和日志淹掉，子代理干苦活，主 Codex 保持清醒。项目越大，这个分工越香。
-
-# 适合什么场景
-
-- 大范围代码阅读和模块梳理。
-- 多文件实现任务。
-- 重复但费 token 的测试修复。
-- 让多个代理分别给方案，再由 Codex 汇总决策。
-- 一个代理写代码，另一个代理专门 review。
-- 迁移、重构、补测试、查调用链这类脏活累活。
-
-不太适合：
-
-- 只有一两行的小改动。
-- 需要主线程实时交互判断的需求。
-- 文件冲突极高、边界还没想清楚的并行任务。
-
-# 最后
-
-Codex 不是不能自己干活，但它更适合当架构师、项目经理、审稿人和最终责任人。真正吃 token 的苦力活，交给 Claude Code 后面的 DeepSeek 去啃。你要做的，就是学会给 Codex 下这种命令：
-
-```text
-你负责拆解、派工、审核和最终交付。子代理负责执行。结果不合格就返工，直到符合我的要求。
+```bash
+env CODEX_CLAUDE_CHILD_THREAD=1 \
+  /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_claude.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
+  -WorkflowId <workflow-id> \
+  -TaskId <task-id> \
+  -Role implementer \
+  -SessionKey <session-key> \
+  -Scope <path-or-module> \
+  -SessionMode PrimaryReuse \
+  -BypassPermissions
 ```
 
-然后坐好，看小 D 把 token 焦虑按在地上摩擦。
+Run a report-only worker:
+
+```bash
+env CODEX_CLAUDE_CHILD_THREAD=1 DEEPSEEK_MODEL=deepseek-v4-flash \
+  /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_openai_compatible_report.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
+  -WorkflowId <workflow-id> \
+  -TaskId <task-id> \
+  -Role researcher \
+  -SessionKey <session-key> \
+  -Scope <path-or-artifact> \
+  -Tests "report-only; do not run shell commands"
+```
+
+Inspect workflows:
+
+```bash
+./skills/codex-with-cc/macos_scripts/ccviz.sh list
+./skills/codex-with-cc/macos_scripts/ccviz.sh show <workflow-id>
+./skills/codex-with-cc/macos_scripts/ccviz.sh audit <workflow-id>
+```
+
+## What You Can Imagine Building With It
+
+- Parallel implementation with bounded write scopes.
+- Independent architecture, security, testing, and migration researchers.
+- Deterministic artifact verification plus optional LLM forensic assistance.
+- Long-running implementation workers that do not bury the main thread.
+- Review pipelines where spec, quality, and final acceptance are separate gates.
+- Low-cost report/audit flows using DeepSeek Flash while keeping implementation with Claude Code.
+- A reusable protocol for human-AI software delivery under uncertainty.
+
+## Maintainers
+
+See [MAINTAINERS.md](MAINTAINERS.md).
+
+## License
+
+MIT. See [LICENSE](LICENSE).

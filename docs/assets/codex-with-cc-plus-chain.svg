@@ -1,0 +1,84 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Codex With CC Plus execution chain</title>
+  <desc id="desc">A precise workflow diagram showing Codex main thread, child threads, local validation, Claude Code implementation workers, DeepSeek report workers, artifacts, and human final judgment.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#1d4ed8"/>
+    </marker>
+    <style>
+      .bg { fill: #f8fafc; }
+      .band { fill: #eef6ff; stroke: #c7ddff; stroke-width: 2; }
+      .box { fill: #ffffff; stroke: #1f2937; stroke-width: 2; rx: 10; }
+      .blue { fill: #dbeafe; stroke: #1d4ed8; }
+      .green { fill: #dcfce7; stroke: #15803d; }
+      .amber { fill: #fef3c7; stroke: #b45309; }
+      .red { fill: #fee2e2; stroke: #b91c1c; }
+      .purple { fill: #ede9fe; stroke: #6d28d9; }
+      .title { font: 700 34px Inter, Arial, sans-serif; fill: #0f172a; }
+      .h { font: 700 21px Inter, Arial, sans-serif; fill: #0f172a; }
+      .t { font: 500 16px Inter, Arial, sans-serif; fill: #334155; }
+      .s { font: 500 14px Inter, Arial, sans-serif; fill: #475569; }
+      .tiny { font: 600 12px Inter, Arial, sans-serif; fill: #475569; }
+      .line { stroke: #1d4ed8; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .muted { stroke: #64748b; stroke-width: 2; fill: none; stroke-dasharray: 7 6; marker-end: url(#arrow); }
+    </style>
+  </defs>
+  <rect class="bg" width="1280" height="720"/>
+  <text x="56" y="58" class="title">Codex With CC Plus: main thread judges, workers do the expensive work</text>
+  <text x="58" y="90" class="t">Deterministic gates stay local. Implementation runs in Claude Code. Report-only judgment can use DeepSeek Flash.</text>
+
+  <rect x="48" y="122" width="1184" height="472" rx="18" class="band"/>
+
+  <rect x="76" y="164" width="210" height="116" class="box blue"/>
+  <text x="104" y="199" class="h">Codex Main</text>
+  <text x="104" y="226" class="t">Design, split tasks,</text>
+  <text x="104" y="248" class="t">review, decide final</text>
+
+  <rect x="340" y="132" width="230" height="90" class="box green"/>
+  <text x="370" y="165" class="h">TaskFile</text>
+  <text x="370" y="191" class="t">Goal / Scope / Tests / Report</text>
+
+  <rect x="340" y="252" width="230" height="92" class="box amber"/>
+  <text x="368" y="285" class="h">Local Validator</text>
+  <text x="368" y="311" class="t">validate_delegate_task</text>
+  <text x="368" y="331" class="s">zero token hard gate</text>
+
+  <rect x="638" y="132" width="244" height="92" class="box purple"/>
+  <text x="668" y="165" class="h">Child Thread</text>
+  <text x="668" y="191" class="t">visible conversation node</text>
+  <text x="668" y="211" class="s">gpt-5.4-mini, fork=false</text>
+
+  <rect x="638" y="266" width="244" height="102" class="box green"/>
+  <text x="668" y="300" class="h">Implementation</text>
+  <text x="668" y="326" class="t">delegate_to_claude</text>
+  <text x="668" y="348" class="s">Claude Code can run long</text>
+
+  <rect x="638" y="410" width="244" height="102" class="box amber"/>
+  <text x="668" y="444" class="h">Report / Audit</text>
+  <text x="668" y="470" class="t">openai-compatible report</text>
+  <text x="668" y="492" class="s">DeepSeek Flash by default</text>
+
+  <rect x="950" y="184" width="224" height="116" class="box blue"/>
+  <text x="984" y="218" class="h">Artifacts</text>
+  <text x="984" y="245" class="t">config / status / stream</text>
+  <text x="984" y="267" class="t">trace / report / workflow</text>
+
+  <rect x="950" y="358" width="224" height="116" class="box red"/>
+  <text x="984" y="392" class="h">Human / Main</text>
+  <text x="984" y="419" class="t">final judge</text>
+  <text x="984" y="441" class="t">approve, reject, rework</text>
+
+  <path class="line" d="M 286 210 C 314 196, 318 184, 340 178"/>
+  <path class="line" d="M 455 222 L 455 252"/>
+  <path class="line" d="M 570 298 C 596 294, 612 238, 638 190"/>
+  <path class="line" d="M 760 224 L 760 266"/>
+  <path class="line" d="M 760 224 L 760 410"/>
+  <path class="line" d="M 882 318 C 920 304, 926 270, 950 248"/>
+  <path class="line" d="M 882 462 C 920 454, 926 422, 950 408"/>
+  <path class="muted" d="M 1062 300 L 1062 358"/>
+  <path class="muted" d="M 950 434 C 720 616, 330 618, 178 280"/>
+
+  <rect x="84" y="622" width="1096" height="58" rx="12" fill="#ffffff" stroke="#cbd5e1"/>
+  <text x="112" y="646" class="tiny">Key idea</text>
+  <text x="112" y="666" class="t">Workers may run for a long time. Codex main should not sleep and burn attention; it should reconnect through artifacts and ccviz.</text>
+</svg>

@@ -37,13 +37,20 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert "[AI_INSTALL.md](AI_INSTALL.md)" in readme_text
     assert "https://github.com/shaoqing404/codex_with_cc_plus" in readme_text
     assert ".codex-plugin/plugin.json" in readme_text
+    assert "docs/assets/codex-with-cc-plus-chain.svg" in readme_text
+    assert "docs/assets/codex-with-cc-plus-state-machine.svg" in readme_text
     assert "安装或更新" in readme_text
     assert "强烈建议优先在 macOS 使用" in readme_text
     assert "main 不要干烧" in readme_text
+    assert "MIT" in readme_text
+    assert (repo / "LICENSE").exists()
+    assert (repo / "MAINTAINERS.md").exists()
+    assert (repo / "docs" / "assets" / "codex-with-cc-plus-chain.svg").exists()
+    assert (repo / "docs" / "assets" / "codex-with-cc-plus-state-machine.svg").exists()
     assert compat_install_phrase not in readme_text
 
     assert "marketplace-only" not in ai_install_text
     assert ".codex-plugin/plugin.json" in ai_install_text
     assert "不是仓库主身份" not in ai_install_text
     assert legacy_scope_phrase not in ai_install_text
-    assert "当前仓库只提供 Codex 插件入口，不提供 Claude 宿主插件配置。" in ai_install_text
+    assert "Codex plugin entry" in ai_install_text

@@ -1,0 +1,78 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="720" viewBox="0 0 1280 720" role="img" aria-labelledby="title desc">
+  <title id="title">Codex With CC Plus state machine</title>
+  <desc id="desc">State machine for task dispatch, validation, running, review, rework, and acceptance.</desc>
+  <defs>
+    <marker id="arrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#0f766e"/>
+    </marker>
+    <style>
+      .bg { fill: #fbfbf8; }
+      .state { fill: #ffffff; stroke: #0f172a; stroke-width: 2; rx: 14; }
+      .start { fill: #dbeafe; stroke: #1d4ed8; }
+      .gate { fill: #fef3c7; stroke: #b45309; }
+      .run { fill: #dcfce7; stroke: #15803d; }
+      .review { fill: #ede9fe; stroke: #6d28d9; }
+      .fail { fill: #fee2e2; stroke: #b91c1c; }
+      .done { fill: #ccfbf1; stroke: #0f766e; }
+      .title { font: 700 34px Inter, Arial, sans-serif; fill: #0f172a; }
+      .h { font: 700 20px Inter, Arial, sans-serif; fill: #0f172a; }
+      .t { font: 500 15px Inter, Arial, sans-serif; fill: #334155; }
+      .s { font: 500 13px Inter, Arial, sans-serif; fill: #475569; }
+      .line { stroke: #0f766e; stroke-width: 3; fill: none; marker-end: url(#arrow); }
+      .reject { stroke: #b91c1c; stroke-width: 3; fill: none; marker-end: url(#arrow); stroke-dasharray: 8 6; }
+      .note { fill: #ffffff; stroke: #cbd5e1; stroke-width: 1.5; rx: 10; }
+    </style>
+  </defs>
+  <rect class="bg" width="1280" height="720"/>
+  <text x="56" y="58" class="title">State machine: deterministic gates, long-running workers, explicit review</text>
+  <text x="58" y="90" class="t">The model can suggest. The validator and main thread decide. Automation stays visible and reversible.</text>
+
+  <rect x="70" y="148" width="190" height="86" class="state start"/>
+  <text x="100" y="181" class="h">Intent</text>
+  <text x="100" y="207" class="t">user asks for delegation</text>
+
+  <rect x="314" y="148" width="190" height="86" class="state"/>
+  <text x="344" y="181" class="h">Plan</text>
+  <text x="344" y="207" class="t">bounded TaskFiles</text>
+
+  <rect x="558" y="148" width="220" height="86" class="state gate"/>
+  <text x="588" y="181" class="h">Validate TaskFile</text>
+  <text x="588" y="207" class="t">local, zero token hard gate</text>
+
+  <rect x="832" y="120" width="220" height="86" class="state run"/>
+  <text x="862" y="153" class="h">Implementation Run</text>
+  <text x="862" y="179" class="t">Claude Code may run long</text>
+
+  <rect x="832" y="246" width="220" height="86" class="state run"/>
+  <text x="862" y="279" class="h">Report Run</text>
+  <text x="862" y="305" class="t">DeepSeek Flash, read-only</text>
+
+  <rect x="558" y="404" width="220" height="86" class="state review"/>
+  <text x="588" y="437" class="h">Review Gates</text>
+  <text x="588" y="463" class="t">spec, quality, final verifier</text>
+
+  <rect x="314" y="404" width="190" height="86" class="state fail"/>
+  <text x="344" y="437" class="h">Rework</text>
+  <text x="344" y="463" class="t">tighten scope or rerun</text>
+
+  <rect x="832" y="404" width="220" height="86" class="state done"/>
+  <text x="862" y="437" class="h">Accept</text>
+  <text x="862" y="463" class="t">human / Codex main decides</text>
+
+  <rect x="104" y="560" width="1020" height="88" class="note"/>
+  <text x="132" y="591" class="h">Long-run policy</text>
+  <text x="132" y="618" class="t">Do not make Codex main sleep. Record RunId, status, stream, trace, and use ccviz checkpoints.</text>
+  <text x="132" y="640" class="s">Optional explicit controls: -MaxBudgetUsd, -MaxTurns, -IncludePartialMessages. Defaults still favor full worker completion.</text>
+
+  <path class="line" d="M 260 191 L 314 191"/>
+  <path class="line" d="M 504 191 L 558 191"/>
+  <path class="line" d="M 778 191 C 802 180, 810 164, 832 160"/>
+  <path class="line" d="M 778 201 C 804 222, 810 278, 832 288"/>
+  <path class="line" d="M 942 206 L 942 246"/>
+  <path class="line" d="M 942 332 C 918 378, 816 418, 778 438"/>
+  <path class="line" d="M 668 234 L 668 404"/>
+  <path class="line" d="M 778 447 L 832 447"/>
+  <path class="reject" d="M 558 447 L 504 447"/>
+  <path class="reject" d="M 409 404 C 406 340, 510 260, 602 234"/>
+  <path class="reject" d="M 668 404 C 650 350, 624 280, 626 234"/>
+</svg>

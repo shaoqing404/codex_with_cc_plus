@@ -1,71 +1,111 @@
-# AI 安装与市场注册说明
+# AI Install Contract
 
-本文件是 `codex_with_cc_plus` 的 Codex 安装、更新与市场注册契约，给 AI 执行安装或维护时使用。当前维护仓库是 `shaoqing404/codex_with_cc_plus`，Codex 插件 manifest 是 `.codex-plugin/plugin.json`。
+This file is for AI agents installing, updating, or operating Codex With CC Plus.
 
-## 默认交互策略
-
-用户要求安装、集成或更新这套工作流时，默认零打扰执行：
-
-1. 直接执行，不先把安装变成问答。
-2. 如果检测到旧版脚本安装残留，先清理项目下旧安装产物和用户级旧版 `codex-with-cc` skill，再继续 marketplace 安装。
-3. 默认执行用户级安装，除非用户明确要求项目级。
-4. 如果宿主环境还没有安装 `codex` CLI，先自动安装官方 CLI，再继续后续步骤。
-5. marketplace 或插件安装失败时先报告失败原因；如果用户要求继续，允许使用本地手动 skill 绑定作为临时路径。
-6. 必要时提醒用户重载插件列表或重启宿主。
-
-## 目标
-
-把本仓库安装为用户级 Codex 插件或本地用户 skill，使所有 child-agent、subagent、sub-agent、child-thread、subthread、delegation、worker-execution、子代理、子线程、多代理、委派、派工或执行层请求都触发 `$codex-with-cc`。
-
-Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger.
-
-触发后必须走：
+Current repository:
 
 ```text
-Codex 主线程 -> Codex spawn_agent 子线程 -> 已安装插件中的 delegate_to_claude.* -> scripts/*.py -> Claude Code CLI
+https://github.com/shaoqing404/codex_with_cc_plus
 ```
 
-不要把 Codex 默认子代理流程、宿主内置 worker、直接运行 `claude`、或主线程直接执行 `delegate_to_claude.*` 当作替代。
+Codex plugin manifest:
 
-## 内部协议
-
-安装入口和 marketplace 插件名保持不变。插件内部直接使用 workflow/task/run 协议：
-
-- 每次用户请求对应一个 `WorkflowId`。
-- 每个被拆出的子任务对应一个 `TaskId`。
-- 每次 Claude Code 执行对应一个 `RunId`。
-- 每个 worker 必须声明 `Role`，取值为 `planner`、`implementer`、`researcher`、`reviewer` 或 `final-verifier`。
-- 当前 artifact schema 会生成 `workflow_<WorkflowId>.json`，用于聚合 task、run、scope、verification、review gate 和 final acceptance。
-- 委派命令必须使用 task-file-only 形态：`-TaskFile`、`-WorkflowId`、`-TaskId`、`-Role`、`-SessionKey` 都是必填。
-- TaskFile 必须包含 `Goal`、`Allowed Scope`、`Forbidden Actions`、`Acceptance Criteria`、`Verification`、`Report Requirements`。
-- TaskFile 不能为空段、不能保留明显占位符，`Report Requirements` 必须列出完整报告标题；复杂任务派发前可先运行 `validate_delegate_task.*` 预检。
-- `validate_delegate_task.*` 是本地静态验证器，只检查 TaskFile 格式、角色/reviewer 元数据、声明的 `-Tests` 覆盖和报告标题；它不调用 DeepSeek、Claude 或 OpenAI-compatible API，不消耗模型 token。
-- DeepSeek Flash 默认只用于 `delegate_to_openai_compatible_report.*` 这条报告型 worker 链路，例如 preflight、audit、final-verifier、报告归一化和可选 task-file assist。
-- 可选 task-file assist 只能解释本地验证失败或建议修正版 TaskFile，必须在报告中写明 `mayOverrideValidator=false`，且最终仍要通过 `validate_delegate_task.*` 才能派发。
-- 旧式 inline `-Task`、旧式 `-Mode`、隐式 session key fallback 都不保留。
-- reviewer 必须额外传 `-ReviewForTaskId` 和 `-ReviewKind spec` 或 `-ReviewKind quality`。
-- worker 报告必须使用 `Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups`，并且 `Status` 与 `Final Result` 必须一致。
-- 单次运行使用 `verify_delegate_run` 或 `verify_delegate_artifacts` 验证；整条工作流使用 `verify_delegate_workflow` 验证。
-- implementer workflow 必须有 accepted `spec` reviewer、accepted `quality` reviewer 和 accepted `final-verifier`；非 dry-run 的 `DONE` 报告必须覆盖所有 `-Tests` 命令和结果；并行 implementer 的 `-Scope` 不能重叠。
-
-插件声明 `./hooks/hooks.json`。宿主启用 Codex hooks 后，`SessionStart` 注入完整契约，`UserPromptSubmit` 遇到触发词时再次注入，`PreToolUse` 拦截直接 `claude`、主线程直接 `delegate_to_claude.*`、缺少 `CODEX_CLAUDE_CHILD_THREAD=1`、缺少 `-TaskFile`、缺少 workflow metadata、缺少 `-SessionKey`、旧式 `-Task`、旧式 `-Mode`、reviewer 缺少 review metadata、以及并行写任务无 `-Scope`。
-
-## 分发源、市场注册与本地安装策略
-
-> [!WARNING]
-> 本仓库已完全迁移至新非 Fork 独立仓库：**[shaoqing404/codex_with_cc_plus](https://github.com/shaoqing404/codex_with_cc_plus)**。
-> 市场注册必须使用 `.codex-plugin/plugin.json`，不要写不存在的 skill-level manifest 路径。
-
-插件源信息：
 ```text
-Source Repository: git@github.com:shaoqing404/codex_with_cc_plus.git
-Plugin Manifest: .codex-plugin/plugin.json
-Target Local Skill Path: ~/.codex/skills/codex-with-cc
+.codex-plugin/plugin.json
 ```
 
-### 公共市场注册项
+This repository provides a Codex plugin entry, not a Claude host plugin.
 
-向公共市场 `aiskyhub/aiskyhub` 注册时，在其 marketplace 索引中添加或更新：
+Workflow root inside the plugin:
+
+```text
+skills/codex-with-cc
+```
+
+Do not use a nonexistent skill-level manifest path.
+
+## Operating Policy
+
+Default behavior:
+
+1. Do the install/update directly when the user asks.
+2. Prefer user-scope plugin install.
+3. Use macOS as the primary supported path when the host is macOS.
+4. Do not mutate system Python; use `uv`, `uvx`, or project-local environments for Python checks.
+5. Do not print API keys.
+6. Do not copy files into fallback skill paths unless marketplace install is unavailable or the user explicitly asks for local fallback.
+7. Do not replace this workflow with default Codex subagents.
+
+## Trigger Rule
+
+Any mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, 子代理, 子线程, 多代理, 委派, 派工, or 执行层 triggers codex-with-cc routing.
+
+Required chain:
+
+```text
+Codex main thread
+-> Codex child thread
+-> local delegate runner
+-> Claude Code CLI or OpenAI-compatible report model
+-> artifacts
+-> Codex main thread / human final judgment
+```
+
+## Runner Separation
+
+```text
+Task file format check
+-> validate_delegate_task.*
+-> local deterministic zero-token hard gate
+
+Implementation worker
+-> delegate_to_claude.*
+-> Claude Code CLI
+-> can edit scoped files and run verification
+
+Report / audit worker
+-> delegate_to_openai_compatible_report.*
+-> DeepSeek Flash or compatible OpenAI API
+-> read-only judgment; no shell tests
+```
+
+`validate_delegate_task.*` is not a DeepSeek verifier. It only checks TaskFile sections, role metadata, reviewer metadata, declared `-Tests`, placeholders, and report headings.
+
+Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain a validation failure or draft a corrected TaskFile. It must state `mayOverrideValidator=false`. The corrected TaskFile still must pass local validation.
+
+## Marketplace Install
+
+Ensure Codex CLI exists:
+
+```bash
+command -v codex || npm i -g @openai/codex
+```
+
+Add public marketplace:
+
+```bash
+codex plugin marketplace add aiskyhub/aiskyhub
+```
+
+Then install in Codex:
+
+```text
+/plugin install codex-with-cc@aiskyhub --scope user
+```
+
+Personal marketplace option:
+
+```bash
+codex plugin marketplace add shaoqing404/marketplace
+```
+
+Then:
+
+```text
+/plugin install codex-with-cc-plus@shaoqing404 --scope user
+```
+
+Marketplace entry should point at:
 
 ```json
 {
@@ -77,442 +117,193 @@ Target Local Skill Path: ~/.codex/skills/codex-with-cc
 }
 ```
 
-### 个人市场注册项
+## Local Fallback Install
 
-自建个人市场 `shaoqing404/marketplace` 时，推荐使用别名 key，避免和公共市场身份混淆：
+Use only when marketplace install is not available or the user asks for local skill binding.
 
-```json
-{
-  "marketName": "shaoqing404",
-  "plugins": {
-    "codex-with-cc-plus@shaoqing404": {
-      "name": "codex-with-cc-plus",
-      "description": "Codex with delegated Claude Code worker orchestration workflow",
-      "version": "1.0.6",
-      "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-      "manifest": ".codex-plugin/plugin.json"
-    }
-  }
-}
+```bash
+git clone git@github.com:shaoqing404/codex_with_cc_plus.git
+mkdir -p ~/.codex/skills
+rm -rf ~/.codex/skills/codex-with-cc
+cp -r codex_with_cc_plus/skills/codex-with-cc ~/.codex/skills/
 ```
 
-### AI 自动本地安装策略
+Equivalent user skill path: `$HOME/.codex/skills/codex-with-cc`.
 
-当 marketplace 尚未注册、安装失败且用户要求继续，才使用本地手动安装：
+Windows equivalent user skill path: `$env:USERPROFILE\.codex\skills\codex-with-cc`.
 
-1. **源码拉取**：将 `shaoqing404/codex_with_cc_plus` 克隆到临时目录中。
-2. **Skill 拷贝**：将克隆目录下的 `skills/codex-with-cc` 文件夹整体复制到用户的 `$HOME/.codex/skills/` 目录下（若目录不存在则先创建）。
-3. **残留清理**：自动清理原项目下的旧文件，并确认本地个人 skills 中无其他重名冲突。
+Then tell Codex in the target project:
 
-## 旧版安装残留清理
+```text
+请把本地 ~/.codex/skills/codex-with-cc 子代理工作流绑定并应用到我当前的项目中。
+```
 
-如果用户之前通过脚本安装过旧版 workflow，安装前先检查并删除这些旧入口，避免 marketplace 插件和旧 skill 同时存在。
+## Cleanup Before Install
 
-### 1. 清理项目下旧安装产物
-
-删除目标项目根目录下这些旧产物：
+Remove legacy project-local copies if present:
 
 - `docs/codex_with_cc`
 - `doc/codex_with_cc`
 - `.codex/skills/codex-with-cc`
-- `AGENTS.md` 里的 `<!-- BEGIN CODEX_WITH_CC --> ... <!-- END CODEX_WITH_CC -->` 托管块
+- managed `<!-- BEGIN CODEX_WITH_CC --> ... <!-- END CODEX_WITH_CC -->` block in `AGENTS.md`
 
-如果 `AGENTS.md` 删除托管块后变空，可以直接删除整个文件。
+If `AGENTS.md` becomes empty after removing the managed block, it may be deleted.
 
-### 2. 清理用户级旧 skill
+## Environment
 
-- 用户级旧 skill：`$HOME/.codex/skills/codex-with-cc`
-- Windows 等价路径：`$env:USERPROFILE\.codex\skills\codex-with-cc`
+For report-only workers:
 
-如果这些路径存在，先删除，再继续 marketplace 安装。不要保留旧 skill 作为回退。
-
-## Codex Marketplace 安装协议
-
-当前仓库只提供 Codex 插件入口，不提供 Claude 宿主插件配置。
-
-Codex 当前 CLI 没有 `marketplace list` 子命令，因此“是否已添加 marketplace”必须通过读取 `~/.codex/config.toml` 判定。
-
-### 1. 检查并安装 Codex CLI
-
-先检查 `codex` 命令是否可用。
-
-PowerShell：
-
-```powershell
-Get-Command codex -ErrorAction SilentlyContinue
+```env
+DEEPSEEK_API_KEY=sk-...
+DEEPSEEK_BASE_URL=https://api.deepseek.com
+DEEPSEEK_MODEL=deepseek-v4-flash
+OPENAI_COMPATIBLE_TIMEOUT_SECONDS=600
 ```
 
-macOS / Linux：
+Accepted aliases:
 
-```bash
-command -v codex
-```
+- `OPENAI_API_KEY`
+- `OPENAI_COMPATIBLE_API_KEY`
+- `OPENAI_BASE_URL`
+- `OPENAI_COMPATIBLE_BASE_URL`
+- `OPENAI_MODEL`
+- `OPENAI_COMPATIBLE_MODEL`
 
-如果不存在，直接按 OpenAI 官方方式安装：
+Never write secrets into artifacts, prompts, reports, logs, or final answers.
 
-```bash
-npm i -g @openai/codex
-```
+## Dispatch Contract
 
-安装完成后再次确认 `codex` 命令可用，再继续 marketplace 安装流程。
+This workflow uses the `workflow/task/run` artifact schema.
 
-如果 `npm` 不存在、CLI 安装失败、或安装后仍然无法调用 `codex`，直接报告失败并停止，不要跳过这一步继续执行。
+Every worker command must pass:
 
-### 2. 检查 marketplace
+- `-TaskFile`
+- `-WorkflowId`
+- `-TaskId`
+- `-Role`
+- `-SessionKey`
 
-检查 `~/.codex/config.toml` 是否包含：
+Implementation workers should normally include:
 
-```toml
-[marketplaces.aiskyhub]
-```
+- `-Scope`
+- `-SessionMode PrimaryReuse`
+- `-BypassPermissions` when the user accepts local trusted execution
 
-如果不存在，执行：
+Parallel writable workers must include explicit non-overlapping `-Scope`.
 
-```bash
-codex plugin marketplace add aiskyhub/aiskyhub
-```
+Reviewer workers must include:
 
-### 3. 检查插件
+- `-ReviewForTaskId`
+- `-ReviewKind spec` or `-ReviewKind quality`
 
-检查 `~/.codex/config.toml` 是否包含并启用：
-
-```toml
-[plugins."codex-with-cc@aiskyhub"]
-```
-
-如果不存在或未启用，在 Codex 中执行：
+Worker reports must use:
 
 ```text
-/plugin install codex-with-cc@aiskyhub --scope user
+Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups
 ```
 
-安装后如未即时生效，可提示用户重载插件或重启 Codex。
+## Long-Run Policy
 
-### 4. 启用 Codex hooks 半硬门
+Implementation workers may run for a long time. That is expected.
 
-如果目标 Codex 宿主支持 hooks，确认用户配置启用了：
+Do not make Codex main thread use `sleep` to babysit a live implementation run. Instead:
 
-```toml
-[features]
-codex_hooks = true
-```
+Do not keep the main agent busy with blind `sleep` loops.
 
-没有启用 hooks 时，插件仍会通过 `$codex-with-cc` skill 做工作流约束；启用后会额外获得平台级 `SessionStart`、`UserPromptSubmit` 和 `PreToolUse` 拦截层。
+1. Record `RunId`, `statusPath`, `rawStreamPath`, `tracePath`, and `outputPath`.
+2. Let Claude Code finish and produce the structured report.
+3. Use `ccviz show <workflow-id>`, `ccviz audit <workflow-id>`, or status JSON checkpoints to reconnect.
+4. If a run is truly stale, inspect PID/status/stream before deciding whether to rework or recover.
 
-### 5. 定位已安装 workflow 根目录
+Optional explicit controls:
 
-后续委派命令里的 `<installed-workflow-root>` 指已安装插件包内部的 `skills/codex-with-cc` 目录，例如：
+- `-MaxBudgetUsd <amount>`: cost brake.
+- `-MaxTurns <n>`: turn-count brake.
+- `-IncludePartialMessages`: more detailed stream events.
 
-```text
-<codex-home>/plugins/cache/aiskyhub/codex-with-cc/<version-or-hash>/skills/codex-with-cc
-```
+These are not defaults. Defaults favor full worker completion.
 
-不要把 `<version-or-hash>` 包根目录当成 workflow 根目录；`contract.json`、`scripts`、`windows_scripts` 和 `macos_scripts` 都在 `skills/codex-with-cc` 下面。
+## macOS Commands
 
-### 6. 安装后自检
-
-如果已经能定位 `<installed-workflow-root>`，优先执行插件自带自检。自检失败时直接报告失败，不回退到复制文件或旧安装脚本。
-
-Windows：
-
-```powershell
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\test_delegate_runtime.ps1"
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\test_delegate_session_pool.ps1"
-```
-
-macOS / Linux：
+Validate a TaskFile:
 
 ```bash
-"<installed-workflow-root>/macos_scripts/test_delegate_runtime.sh"
-"<installed-workflow-root>/macos_scripts/test_delegate_session_pool.sh"
-```
-
-还可以在目标项目里做一次 dry-run 委派，确认产物写到项目目录而不是插件缓存目录。先创建合规 task file：
-
-```powershell
-$taskDir = ".\.codex\codex_with_cc\tasks\install-check"
-New-Item -ItemType Directory -Force -Path $taskDir | Out-Null
-$taskFile = Join-Path $taskDir "dry-run-install-verification.md"
-Set-Content -Encoding UTF8 -Path $taskFile -Value @"
-# Install Check
-
-Goal
-dry-run install verification
-
-Allowed Scope
-- AGENTS.md
-
-Forbidden Actions
-- Do not edit project files.
-- Do not invoke nested delegate runs.
-
-Acceptance Criteria
-- Dry-run artifacts are written under the current project.
-
-Verification
-- verify_delegate_run for the emitted RunId
-- verify_delegate_workflow for install-check
-
-Report Requirements
-- Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups
-"@
-$env:CODEX_CLAUDE_CHILD_THREAD = '1'
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\validate_delegate_task.ps1" `
-  -TaskFile $taskFile `
-  -Role researcher
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\delegate_to_claude.ps1" `
-  -TaskFile $taskFile `
-  -WorkflowId install-check `
-  -TaskId install-check-dry-run `
-  -Role researcher `
-  -SessionKey install-check `
-  -Scope AGENTS.md `
-  -DryRun
-```
-
-```bash
-task_dir="./.codex/codex_with_cc/tasks/install-check"
-mkdir -p "$task_dir"
-task_file="$task_dir/dry-run-install-verification.md"
-cat > "$task_file" <<'TASK'
-# Install Check
-
-Goal
-dry-run install verification
-
-Allowed Scope
-- AGENTS.md
-
-Forbidden Actions
-- Do not edit project files.
-- Do not invoke nested delegate runs.
-
-Acceptance Criteria
-- Dry-run artifacts are written under the current project.
-
-Verification
-- verify_delegate_run for the emitted RunId
-- verify_delegate_workflow for install-check
-
-Report Requirements
-- Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups
-TASK
-CODEX_CLAUDE_CHILD_THREAD=1 "<installed-workflow-root>/macos_scripts/validate_delegate_task.sh" \
-  -TaskFile "$task_file" \
-  -Role researcher
-CODEX_CLAUDE_CHILD_THREAD=1 "<installed-workflow-root>/macos_scripts/delegate_to_claude.sh" \
-  -TaskFile "$task_file" \
-  -WorkflowId install-check \
-  -TaskId install-check-dry-run \
-  -Role researcher \
-  -SessionKey install-check \
-  -Scope AGENTS.md \
-  -DryRun
-```
-
-dry-run 成功后，默认应能在当前项目看到 `.codex/codex_with_cc/claude-delegate` 下的 `config_<RunId>.json`、`status_<RunId>.json`、`prompt_<RunId>.md`、`claude_<RunId>.md` 和 `workflow_install-check.json`。如果项目内默认目录不可写，运行时会打印 `Artifact Root:` 并自动退到 `$CODEX_HOME/codex_with_cc/claude-delegate/<project-key>`。随后用输出里的 `RunId` 做产物验证。
-
-## 失败处理
-
-- marketplace 添加失败：直接报告失败并停止。
-- 插件安装失败：直接报告失败并停止。
-- 自检或 dry-run 委派失败：直接报告失败并停止。
-- 只有用户明确要求继续使用本地 fallback 时，才复制 `skills/codex-with-cc` 到本地 skill 目录。
-- 不要创建或恢复旧的安装脚本路径。
-- 不要把失败处理成“先手动复制再说”。
-
-## 安装或更新完成后告知用户
-
-最终回复至少要明确这些信息：
-
-- 这次是安装成功、更新成功，还是只完成了前置检查。
-- 是否新增了 `aiskyhub` marketplace。
-- 是否使用了 `shaoqing404/marketplace` 个人市场。
-- 是否清理了项目下旧安装产物。
-- 是否清理了用户级旧版 `codex-with-cc` skill。
-- `codex-with-cc@aiskyhub` 是否已经安装或更新完成。
-- 如果走个人市场，`codex-with-cc-plus@shaoqing404` 是否已经安装或更新完成。
-- 如果走本地 fallback，`$HOME/.codex/skills/codex-with-cc` 是否已经更新完成。
-- 是否运行了 runtime/session-pool 自检和 dry-run 委派验证。
-- 是否需要用户执行 `/plugin install codex-with-cc@aiskyhub --scope user`。
-- 是否需要用户重载插件列表或重启 Codex。
-- 如果有步骤没执行，必须说明阻塞原因。
-
-不要只说“好了”或“已完成”，要把本次更新实际变更和剩余动作交代清楚。
-
-## 委派规则
-
-三层 runner 分工：
-
-```text
-Task file 格式检查
--> 本地 validate_delegate_task.*
--> 零 token 确定性硬门
-
-实现型任务
--> Codex child thread
--> delegate_to_claude.*
--> Claude Code CLI
-
-报告/审计型任务
--> Codex child thread
--> delegate_to_openai_compatible_report.*
--> DeepSeek Flash 或兼容 OpenAI API
-```
-
-长实现任务原则：
-
-- 实现型 worker 应该被充分授权完成任务后再返回正式报告。
-- Codex main thread 不要用 `sleep` 陪跑，也不要反复读取同一个 live run 的 artifacts 来假装推进。
-- main thread 应记录 `RunId`、`statusPath`、`rawStreamPath`、`tracePath`，然后通过 `ccviz show` / `ccviz audit` 或状态 JSON 做检查点式接管。
-- 如果用户明确要限制异常长跑，可显式传 `-MaxBudgetUsd` 或 `-MaxTurns`；如果需要更细粒度观测，可显式传 `-IncludePartialMessages`。
-- `-MaxTurns` 和 `-IncludePartialMessages` 是人工熔断/观测工具，不是默认限制；默认仍然是拆小任务、放权执行、回来 review。
-
-Windows 子线程标准调用形态：
-
-```powershell
-$env:CODEX_CLAUDE_CHILD_THREAD = '1'
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\delegate_to_claude.ps1" `
-  -TaskFile .\.codex\codex_with_cc\tasks\<yyyyMMdd>\<HHmmssfff>-<short-id>-<task-file>.md `
-  -WorkflowId <workflow-id> `
-  -TaskId <task-id> `
-  -Role implementer `
-  -SessionKey <stable-session-key> `
-  -Scope <changed-or-inspected-path> `
-  -SessionMode PrimaryReuse `
-  -BypassPermissions
-```
-
-macOS 子线程标准调用形态：
-
-```bash
-export CODEX_CLAUDE_CHILD_THREAD=1
-"<installed-workflow-root>/macos_scripts/delegate_to_claude.sh" \
-  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
-  -WorkflowId <workflow-id> \
-  -TaskId <task-id> \
+/absolute/path/to/skills/codex-with-cc/macos_scripts/validate_delegate_task.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
   -Role implementer \
-  -SessionKey <stable-session-key> \
-  -Scope <changed-or-inspected-path> \
-  -SessionMode PrimaryReuse \
-  -BypassPermissions
+  -Tests "pytest -q"
 ```
 
-`zsh` trusted local terminal fallback 注意事项：不要在同一个 simple command 里先写 `WORKFLOW_ROOT=...` 又立刻展开 `"$WORKFLOW_ROOT/..."`，因为展开发生在赋值进入当前 shell 之前。推荐直接使用完整路径：
+Run implementation worker:
 
 ```bash
 env CODEX_CLAUDE_CHILD_THREAD=1 \
   /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_claude.sh \
-  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
   -WorkflowId <workflow-id> \
   -TaskId <task-id> \
   -Role implementer \
-  -SessionKey <stable-session-key> \
-  -Scope <changed-or-inspected-path> \
+  -SessionKey <session-key> \
+  -Scope <path-or-module> \
   -SessionMode PrimaryReuse \
   -BypassPermissions
 ```
 
-可选 task-file assist 使用报告型 runner，而不是替代本地验证器。assist 任务自身必须是合规 TaskFile，目标是读取一个草稿或失败信息并输出修正版建议：
+Run report-only worker:
 
 ```bash
 env CODEX_CLAUDE_CHILD_THREAD=1 DEEPSEEK_MODEL=deepseek-v4-flash \
   /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_openai_compatible_report.sh \
-  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<assist-task-file>.md \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
   -WorkflowId <workflow-id> \
-  -TaskId taskfile-assist \
-  -Role planner \
-  -SessionKey <stable-session-key> \
-  -Scope ./.codex/codex_with_cc/tasks \
-  -Tests "report-only; do not run shell commands; mayOverrideValidator=false"
+  -TaskId <task-id> \
+  -Role researcher \
+  -SessionKey <session-key> \
+  -Scope <path-or-artifact> \
+  -Tests "report-only; do not run shell commands"
 ```
 
-assist 输出只能作为改稿建议。改完实际 TaskFile 后，必须再次运行 `validate_delegate_task.*`。
+Do not assign `WORKFLOW_ROOT=...` and expand `"$WORKFLOW_ROOT/..."` in the same zsh simple command. Use a prior exported variable or an absolute path.
 
-reviewer 任务必须额外传：
+## Verification
+
+After install/update:
+
+Use `<installed-workflow-root>` for the installed `skills/codex-with-cc` directory.
+
+```bash
+./skills/codex-with-cc/macos_scripts/test_delegate_runtime.sh
+./skills/codex-with-cc/macos_scripts/test_delegate_session_pool.sh
+uvx pytest -q
+```
+
+Windows wrapper parity checks:
 
 ```text
--Role reviewer -ReviewForTaskId <implementer-task-id> -ReviewKind spec
+test_delegate_runtime.ps1
+test_delegate_session_pool.ps1
 ```
 
-或：
-
-```text
--Role reviewer -ReviewForTaskId <implementer-task-id> -ReviewKind quality
-```
-
-并行任务按场景使用：
-
-- `PrimaryAnchor -AllowParallel`：并行批次的主线锚点。
-- `ParallelPool -AllowParallel`：独立支线任务池。
-
-只有任务范围互不冲突时才允许并行。多个子代理同时修改同一批文件时，必须拆分写入边界或改为串行。
-
-派发前预检 TaskFile：
-
-```powershell
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\validate_delegate_task.ps1" `
-  -TaskFile .\.codex\codex_with_cc\tasks\<yyyyMMdd>\<HHmmssfff>-<short-id>-<task-file>.md `
-  -Role implementer `
-  -Tests "pytest -q"
-```
+Inspect workflow artifacts:
 
 ```bash
-"<installed-workflow-root>/macos_scripts/validate_delegate_task.sh" \
-  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
-  -Role implementer \
-  -Tests "pytest -q"
+./skills/codex-with-cc/macos_scripts/verify_delegate_run.sh -RunId <run-id>
+./skills/codex-with-cc/macos_scripts/verify_delegate_workflow.sh -WorkflowId <workflow-id>
+./skills/codex-with-cc/macos_scripts/ccviz.sh list
+./skills/codex-with-cc/macos_scripts/ccviz.sh show <workflow-id>
+./skills/codex-with-cc/macos_scripts/ccviz.sh audit <workflow-id>
 ```
 
-## 验证与产物
+## Final Report To User
 
-委派运行产物默认写在当前项目：
+Only say the workflow is ready after verification.
 
-```text
-.codex/codex_with_cc/claude-delegate
-```
+When done, report:
 
-如果这个项目内默认目录不可写，运行时会自动退到用户级 `$CODEX_HOME/codex_with_cc/claude-delegate/<project-key>`，并在输出里打印实际 `Artifact Root:`。显式传入 `-ArtifactRoot` 时不会自动改路径；该目录不可写会直接失败。
-
-常见文件包括：
-
-- `workflow_<WorkflowId>.json`
-- `claude_<RunId>.md`
-- `status_<RunId>.json`
-- `config_<RunId>.json`
-- `prompt_<RunId>.md`
-- `stream_<RunId>.jsonl`
-- `trace_<RunId>.log`
-- `session-pools/<SessionKey>.json`
-
-检查单次委派产物：
-
-```powershell
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_artifacts.ps1" -RunId <run-id>
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_run.ps1" -RunId <run-id>
-```
-
-```bash
-"<installed-workflow-root>/macos_scripts/verify_delegate_artifacts.sh" -RunId <run-id>
-"<installed-workflow-root>/macos_scripts/verify_delegate_run.sh" -RunId <run-id>
-```
-
-检查整条 workflow：
-
-```powershell
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_workflow.ps1" -WorkflowId <workflow-id>
-```
-
-```bash
-"<installed-workflow-root>/macos_scripts/verify_delegate_workflow.sh" -WorkflowId <workflow-id>
-```
-
-检查多轮链路连续性：
-
-```powershell
-pwsh -NoProfile -File "<installed-workflow-root>\windows_scripts\verify_delegate_chain.ps1"
-```
-
-```bash
-"<installed-workflow-root>/macos_scripts/verify_delegate_chain.sh"
-```
+- install/update status
+- marketplace or local fallback used
+- old files cleaned
+- self-tests run
+- dry-run install verification or real workflow verification result
+- any remaining action for the user
+- exact blocker if collaborator invitation or marketplace publication could not be completed
