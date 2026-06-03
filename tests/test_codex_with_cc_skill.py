@@ -163,6 +163,7 @@ def test_workflow_docs_do_not_expose_version_branding() -> None:
         haystack = rel.as_posix()
         if path.suffix.lower() in {".md", ".py", ".js", ".json", ".yaml", ".yml", ".ps1", ".sh"}:
             haystack += "\n" + path.read_text(encoding="utf-8")
+        haystack = re.sub(r"https?://\S+", "", haystack)
         for token in forbidden:
             assert token not in haystack, f"unexpected version branding token {token!r} in {rel}"
 

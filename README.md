@@ -1,14 +1,40 @@
 # Codex With CC Plus
 
+Codex With CC Plus 是一套给 Codex 用的可审计多 worker 工作流：Codex 主线程负责拆解、派工、验收和最终判断；昂贵、长时间、会改代码的实现任务交给 Claude Code；便宜、高频、只读的报告和审计任务交给 DeepSeek、MiniMax、MiMo 或其他 OpenAI-compatible API。
+
 Codex With CC Plus is an auditable multi-worker workflow for Codex: Codex stays the planner and final judge, while expensive implementation work is delegated through Claude Code, and low-cost report/audit work can run through DeepSeek Flash or another OpenAI-compatible API.
 
+如果你是 Codex，用户要求安装或更新这个工作流时，请先读 [AI_INSTALL.md](AI_INSTALL.md)。
+
 If you are Codex and the user asks you to install or update this workflow, read [AI_INSTALL.md](AI_INSTALL.md).
+
+## 模型价格速览 / Token Price Snapshot
+
+价格会变，下面只作为 2026-06-03 的架构选型参考；最终账单和精确 API model id 请以官网为准。
+
+Prices change. This table is a 2026-06-03 routing reference only; use the official pricing pages as the source of truth for final billing and exact API model ids.
+
+| Provider | Model / Tier | Context note | Input cache hit / 1M tokens | Input cache miss / 1M tokens | Output / 1M tokens | Official link |
+| --- | --- | --- | ---: | ---: | ---: | --- |
+| DeepSeek | `deepseek-chat` | 64K context, 8K max output | $0.07 | $0.27 | $1.10 | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing-details-usd) |
+| DeepSeek | `deepseek-reasoner` | 64K context, 32K max CoT, 8K max output | $0.14 | $0.55 | $2.19 | [DeepSeek pricing](https://api-docs.deepseek.com/quick_start/pricing-details-usd) |
+| MiniMax | `MiniMax-M3` standard, <=512K input | listed 7-day 50% off price | $0.06 prompt cache read | $0.30 input | $1.20 | [MiniMax Token Plan](https://platform.minimaxi.com/subscribe/token-plan?code=8Qv3X7oLng&source=link) |
+| MiniMax | `MiniMax-M2.7` | standard LLM tier | $0.06 prompt cache read | $0.30 input | $1.20 | [MiniMax Token Plan](https://platform.minimaxi.com/subscribe/token-plan?code=8Qv3X7oLng&source=link) |
+| MiMo | MiMo 2.5 Pro overseas PAYG | 1M context, 128K max output | $0.0036 | $0.435 | $0.87 | [MiMo Pay-as-you-go](https://platform.xiaomimimo.com/docs/en-US/price/pay-as-you-go) |
+| MiMo | MiMo 2.5 overseas PAYG | 1M context, 128K max output | $0.0028 | $0.14 | $0.28 | [MiMo Pay-as-you-go](https://platform.xiaomimimo.com/docs/en-US/price/pay-as-you-go) |
+| MiMo | MiMo Flash overseas PAYG | 256K context, 64K max output | $0.01 | $0.10 | $0.30 | [MiMo Pay-as-you-go](https://platform.xiaomimimo.com/docs/en-US/price/pay-as-you-go) |
+
+这就是 Codex With CC Plus 让人兴奋的地方：不是把所有事情都塞给一个最贵的大脑硬扛，而是把每一分钱花在正确的位置。便宜模型可以不停做 preflight、归一化、报告审计、失败解释；Claude Code 专心做真正需要动手的实现；Codex 主线程保持清醒，像项目负责人一样看证据、收口、决定是否接受。那种“主线程等到发烫、日志淹死人、worker 写到哪里都不知道”的感觉，会一下子轻很多。
+
+This is the fun part: the workflow does not burn the most expensive model on every tiny judgment. Cheap models can handle preflight, normalization, report review, and failure forensics. Claude Code focuses on real implementation. Codex main thread stays clear-headed, reviews evidence, and owns acceptance. The whole thing feels less like waiting in a fog and more like running a small, accountable engineering room.
 
 ![Codex With CC Plus execution chain](docs/assets/codex-with-cc-plus-chain.svg)
 
 ![Codex With CC Plus state machine](docs/assets/codex-with-cc-plus-state-machine.svg)
 
-## What It Does
+## 它能做什么 / What It Does
+
+Codex With CC Plus 会把一句模糊的“用子代理做”变成一条有状态、有边界、有证据的工作流。
 
 Codex With CC Plus turns a vague “use subagents” request into a controlled workflow:
 
@@ -22,19 +48,31 @@ Codex With CC Plus turns a vague “use subagents” request into a controlled w
 
 The big idea is simple: let workers do the noisy work, but keep accountability with Codex main thread and the human.
 
-## Why It Exists
+核心很简单：让 worker 去做嘈杂的工作，但把责任、证据和最终判断留在 Codex 主线程和人手里。
+
+## 为什么需要它 / Why It Exists
+
+大型 AI 编码任务常常不是输在模型不聪明，而是输在过程失控：主线程被日志拖进泥里，worker 上下文说不清，并行写入互相踩，review 只信摘要，长实现任务让主线程白白等待。
 
 Large AI coding tasks often fail in boring ways: the main agent gets buried in logs, worker context is implicit, parallel writes overlap, reviews trust summaries too much, and long implementation runs make the main thread wait while nothing useful happens.
 
+Codex With CC Plus 给这个过程加上状态机。它不是魔法 prompt，而是一套围绕 TaskFile、child-thread dispatch、确定性验证、artifacts、review gate 和最终验收的小协议。
+
 Codex With CC Plus gives that process a state machine. It is not a magic prompt. It is a small protocol for task files, child-thread dispatch, deterministic validation, artifacts, review gates, and final acceptance.
 
-## Learning Relationship
+## 学习关系 / Learning Relationship
+
+本项目学习并参考了原始 `codex-with-cc` / Codex with CC 工作流思想：Codex 做主控，Claude Code 做执行 worker，再用更便宜的模型层承接高频判断。Codex With CC Plus 是一个独立延续，重点放在更严格的 artifacts、OpenAI-compatible report runner、`ccviz` 可观测性和 Codex plugin / marketplace 分发。
 
 This project learns from and references the original `codex-with-cc` / Codex with CC workflow idea: Codex as leader, Claude Code as execution worker, and a cheaper model layer for high-volume reasoning. Codex With CC Plus is an independent continuation focused on stricter artifacts, OpenAI-compatible report runners, `ccviz` observability, and marketplace/plugin distribution.
 
+复用本项目时，请保留 attribution 和 MIT license。
+
 If you reuse this work, preserve the attribution and the MIT license.
 
-## Platform Recommendation
+## 平台建议 / Platform Recommendation
+
+优先使用 macOS。
 
 Use macOS first.
 
