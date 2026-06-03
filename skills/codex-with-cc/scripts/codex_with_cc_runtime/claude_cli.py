@@ -80,6 +80,8 @@ def new_claude_cli_args(
     resume: bool,
     max_budget_usd: str | None,
     bypass_permissions: bool,
+    max_turns: int | None = None,
+    include_partial_messages: bool = False,
 ) -> list[str]:
     args = [
         "--verbose",
@@ -96,6 +98,10 @@ def new_claude_cli_args(
     args.extend(["--resume" if resume else "--session-id", session_id])
     if max_budget_usd not in (None, ""):
         args.extend(["--max-budget-usd", str(max_budget_usd)])
+    if max_turns is not None:
+        args.extend(["--max-turns", str(max_turns)])
+    if include_partial_messages:
+        args.append("--include-partial-messages")
     if bypass_permissions:
         args.append("--dangerously-skip-permissions")
     return args

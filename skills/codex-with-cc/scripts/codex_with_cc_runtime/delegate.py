@@ -343,6 +343,8 @@ def run_delegate(ns: argparse.Namespace) -> int:
         "reviewForTaskId": safe_task_id(ns.review_for_task_id) if ns.review_for_task_id else None,
         "reviewKind": ns.review_kind,
         "maxBudgetUsd": str(ns.max_budget_usd) if ns.max_budget_usd not in (None, "") else None,
+        "maxTurns": ns.max_turns,
+        "includePartialMessages": bool(ns.include_partial_messages),
         "bypassPermissions": bool(ns.bypass_permissions),
         "allowParallel": bool(ns.allow_parallel),
         "initialSessionId": None,
@@ -522,6 +524,8 @@ def run_delegate(ns: argparse.Namespace) -> int:
                     lease.resume,
                     str(ns.max_budget_usd) if ns.max_budget_usd not in (None, "") else None,
                     bool(ns.bypass_permissions),
+                    ns.max_turns,
+                    bool(ns.include_partial_messages),
                 )
                 if attempt == 1:
                     config["initialSessionId"] = lease.session_id
@@ -551,6 +555,9 @@ def run_delegate(ns: argparse.Namespace) -> int:
                     errors="replace",
                     cwd=str(root),
                 )
+                attempt_record["pid"] = process.pid
+                status["pid"] = process.pid
+                write_json(status_path, status)
                 execution_started = True
                 assert process.stdout is not None
                 assert process.stdin is not None

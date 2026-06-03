@@ -61,6 +61,30 @@ def make_fake_claude_bin(temp_root: Path, body: str) -> Path:
     return bin_dir
 
 
+def make_python_jsonl_fake_claude_bin(temp_root: Path, records: list[str], name: str = "fake-claude-bin") -> Path:
+    bin_dir = temp_root / name
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    script = bin_dir / "fake_claude_jsonl.py"
+    write_text(
+        script,
+        (
+            "import sys\n"
+            "sys.stdin.read()\n"
+            f"records = {records!r}\n"
+            "for record in records:\n"
+            "    print(record)\n"
+        ),
+    )
+    if os.name == "nt":
+        fake = bin_dir / "claude.cmd"
+        write_text(fake, f'@echo off\n"{sys.executable}" "{script}"\n')
+    else:
+        fake = bin_dir / "claude"
+        write_text(fake, f"#!/usr/bin/env sh\nexec {sys.executable!r} {str(script)!r}\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    return bin_dir
+
+
 def write_task_file(root: Path, task_id: str, text: str) -> Path:
     task_file = root / f"{task_id}.md"
     write_text(
@@ -248,11 +272,14 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_equal(int(config["maxRetryCount"]), 7, "dry-run-config-records-max-retry")
         assert_equal(int(status["maxRetryCount"]), 7, "dry-run-status-records-max-retry")
 
-        if os.name == "nt":
-            fake_body = '@echo off\nmore > nul\necho {"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I inspected the tests."}]}}\necho {"type":"result","subtype":"success"}\nexit /b 0\n'
-        else:
-            fake_body = '#!/bin/sh\nprintf \'%s\\n\' \'{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I inspected the tests."}]}}\'\nprintf \'%s\\n\' \'{"type":"result","subtype":"success"}\'\nexit 0\n'
-        fake_bin = make_fake_claude_bin(temp_root, fake_body)
+        fake_bin = make_python_jsonl_fake_claude_bin(
+            temp_root,
+            [
+                '{"type":"assistant","message":{"role":"assistant","content":[{"type":"text","text":"I inspected the tests."}]}}',
+                '{"type":"result","subtype":"success"}',
+            ],
+            "fake-claude-unstructured-bin",
+        )
         run_root = temp_root / "unstructured"
         env = {CHILD_MARKER_NAME: "1", "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
         run = run_delegate_subprocess(
@@ -278,6 +305,63 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_true(not text_has_required_report_headings(markdown_report), "markdown-report-headings-rejected")
         missing_summary = "\n".join(REPORT_HEADINGS).replace("Summary\n", "")
         assert_true(not text_has_required_report_headings(missing_summary), "missing-report-heading-rejected")
+
+        newline_report = "\n".join(
+            (
+                "Status",
+                "DONE",
+                "",
+                "Role",
+                "implementer",
+                "",
+                "Summary",
+                "Structured report contains real newlines inside the JSON string.",
+                "",
+                "Changed Files",
+                "None",
+                "",
+                "Verification",
+                "- fake newline JSONL output passed",
+                "",
+                "Findings",
+                "- fake Claude emitted one JSON object whose text field contains escaped newlines",
+                "",
+                "Final Result",
+                "DONE",
+                "",
+                "Risks Or Follow-ups",
+                "None",
+            )
+        )
+        newline_assistant = json.dumps(
+            {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": newline_report}]}},
+            separators=(",", ":"),
+        )
+        newline_result = json.dumps({"type": "result", "subtype": "success"}, separators=(",", ":"))
+        newline_fake_bin = make_python_jsonl_fake_claude_bin(
+            temp_root,
+            [newline_assistant, newline_result],
+            "fake-claude-newline-jsonl-bin",
+        )
+        newline_root = temp_root / "newline-jsonl"
+        newline_env = {CHILD_MARKER_NAME: "1", "PATH": f"{newline_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        newline_run = run_delegate_subprocess(
+            [
+                *delegate_task_args(temp_root, "newline-jsonl-report", "newline JSONL report probe", "implementer"),
+                "-ArtifactRoot",
+                str(newline_root),
+                "-SessionKey",
+                "newline-jsonl",
+                "-MaxRetryCount",
+                "0",
+            ],
+            env=newline_env,
+        )
+        assert_equal(newline_run.returncode, 0, "newline-jsonl-report-succeeds")
+        newline_status = load_json(next(newline_root.glob("status_*.json")))
+        newline_stream = read_text(next(newline_root.glob("stream_*.jsonl")))
+        assert_equal(newline_status["status"], "completed", "newline-jsonl-status-completed")
+        assert_true(newline_assistant in newline_stream.splitlines(), "newline-jsonl-remains-single-line-json")
 
         retry_report = "\n".join(
             (

@@ -34,6 +34,9 @@ def test_ai_install_doc_contract() -> None:
     assert "Task file 格式检查" in text
     assert "零 token 确定性硬门" in text
     assert "env CODEX_CLAUDE_CHILD_THREAD=1" in text
+    assert "不要用 `sleep` 陪跑" in text
+    assert "-MaxTurns" in text
+    assert "-IncludePartialMessages" in text
     assert "docs/codex_with_cc" in text
     assert "doc/codex_with_cc" in text
     assert ".codex/skills/codex-with-cc" in text

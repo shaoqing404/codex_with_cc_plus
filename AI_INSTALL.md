@@ -360,6 +360,14 @@ Task file 格式检查
 -> DeepSeek Flash 或兼容 OpenAI API
 ```
 
+长实现任务原则：
+
+- 实现型 worker 应该被充分授权完成任务后再返回正式报告。
+- Codex main thread 不要用 `sleep` 陪跑，也不要反复读取同一个 live run 的 artifacts 来假装推进。
+- main thread 应记录 `RunId`、`statusPath`、`rawStreamPath`、`tracePath`，然后通过 `ccviz show` / `ccviz audit` 或状态 JSON 做检查点式接管。
+- 如果用户明确要限制异常长跑，可显式传 `-MaxBudgetUsd` 或 `-MaxTurns`；如果需要更细粒度观测，可显式传 `-IncludePartialMessages`。
+- `-MaxTurns` 和 `-IncludePartialMessages` 是人工熔断/观测工具，不是默认限制；默认仍然是拆小任务、放权执行、回来 review。
+
 Windows 子线程标准调用形态：
 
 ```powershell

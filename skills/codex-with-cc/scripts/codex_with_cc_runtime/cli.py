@@ -58,6 +58,8 @@ def add_delegate_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-Name", dest="name")
     parser.add_argument("-NamePrefix", dest="name_prefix", default="codex-delegate")
     parser.add_argument("-MaxBudgetUsd", dest="max_budget_usd")
+    parser.add_argument("-MaxTurns", dest="max_turns", type=int_range_arg("MaxTurns", 1, 1000))
+    parser.add_argument("-IncludePartialMessages", dest="include_partial_messages", action="store_true")
     parser.add_argument("-ArtifactRoot", dest="artifact_root")
     parser.add_argument("-OutputPath", dest="output_path")
     parser.add_argument("-AllowParallel", dest="allow_parallel", action="store_true")

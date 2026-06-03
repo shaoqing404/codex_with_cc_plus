@@ -13,6 +13,7 @@ sys.path.insert(0, str(repo / "skills" / "codex-with-cc" / "scripts"))
 from codex_with_cc_runtime.prompts import build_prompt
 from codex_with_cc_runtime.reports import build_report_repair_prompt
 from codex_with_cc_runtime.paths import script_ext, script_family
+from codex_with_cc_runtime.claude_cli import new_claude_cli_args
 
 delegate = repo / "skills" / "codex-with-cc" / "scripts" / "delegate_to_claude.py"
 real_chain = repo / "skills" / "codex-with-cc" / "scripts" / "run_real_delegate_chain_validation.py"
@@ -116,3 +117,20 @@ def test_final_verifier_prompt_does_not_hide_review_gate_duty() -> None:
     assert "Review target task id:\nNone" not in prompt
     assert "Review kind:\nNone" not in prompt
     assert "final-verifier must still verify implementer spec and quality review gates" in prompt
+
+
+def test_claude_cli_args_support_progress_and_turn_limits() -> None:
+    args = new_claude_cli_args(
+        "sonnet",
+        "sample",
+        "session-id",
+        False,
+        "0.35",
+        True,
+        max_turns=12,
+        include_partial_messages=True,
+    )
+
+    assert "--max-turns" in args
+    assert args[args.index("--max-turns") + 1] == "12"
+    assert "--include-partial-messages" in args

@@ -38,6 +38,8 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert "https://github.com/shaoqing404/codex_with_cc_plus" in readme_text
     assert ".codex-plugin/plugin.json" in readme_text
     assert "安装或更新" in readme_text
+    assert "强烈建议优先在 macOS 使用" in readme_text
+    assert "main 不要干烧" in readme_text
     assert compat_install_phrase not in readme_text
 
     assert "marketplace-only" not in ai_install_text

@@ -155,6 +155,8 @@ def test_delegate_wrapper_is_thin_and_forwards_to_python() -> None:
             "wrapper-test",
             "-MaxBudgetUsd",
             "0.35",
+            "-MaxTurns",
+            "12",
             "-ArtifactRoot",
             str(artifact_root),
             "-AllowParallel",
@@ -173,6 +175,7 @@ def test_delegate_wrapper_is_thin_and_forwards_to_python() -> None:
             "50",
             "-MaxRetryCount",
             "0",
+            "-IncludePartialMessages",
             "-BypassPermissions",
             "-DryRun",
             env={"CODEX_CLAUDE_CHILD_THREAD": "1"},
@@ -184,6 +187,8 @@ def test_delegate_wrapper_is_thin_and_forwards_to_python() -> None:
 
         assert config["mode"] == "researcher"
         assert config["maxBudgetUsd"] == "0.35"
+        assert config["maxTurns"] == 12
+        assert config["includePartialMessages"] is True
         assert config["allowParallel"] is True
         assert config["sessionMode"] == "ParallelPool"
         assert config["sessionKey"] == "wrapper-session"
