@@ -6,6 +6,7 @@ import json
 def test_plugin_manifest_and_docs_contract() -> None:
     repo = Path(__file__).resolve().parents[1]
     codex_plugin_path = repo / ".codex-plugin" / "plugin.json"
+    marketplace_path = repo / ".agents" / "plugins" / "marketplace.json"
     skill_path = repo / "skills" / "codex-with-cc" / "SKILL.md"
     readme_text = (repo / "README.md").read_text(encoding="utf-8")
     ai_install_text = (repo / "AI_INSTALL.md").read_text(encoding="utf-8")
@@ -13,6 +14,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
     compat_install_phrase = "".join(("兼容", "安装"))
 
     assert codex_plugin_path.exists()
+    assert marketplace_path.exists()
     assert not (repo / ".claude-plugin" / "plugin.json").exists()
     assert skill_path.exists()
 
@@ -28,15 +30,29 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert codex_interface["displayName"] == "Codex With CC"
     assert "Codex" in codex_interface["shortDescription"]
     assert "Claude Code" in codex_interface["shortDescription"]
-    assert "aiskyhub" in codex_interface["longDescription"]
+    assert "self-indexed" in codex_interface["longDescription"]
     assert "marketplace" in codex_interface["longDescription"].lower()
     assert "Read" in codex_interface["capabilities"]
     assert "Write" in codex_interface["capabilities"]
-    assert any("aiskyhub/aiskyhub" in prompt for prompt in codex_interface["defaultPrompt"])
+    assert any("shaoqing404/codex_with_cc_plus" in prompt for prompt in codex_interface["defaultPrompt"])
+    assert any("codex-with-cc@codex-with-cc-plus" in prompt for prompt in codex_interface["defaultPrompt"])
+
+    marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
+    assert marketplace["name"] == "codex-with-cc-plus"
+    assert marketplace["interface"]["displayName"] == "Codex With CC Plus"
+    assert marketplace["plugins"] == [
+        {
+            "name": "codex-with-cc",
+            "source": {"source": "url", "url": "https://github.com/shaoqing404/codex_with_cc_plus.git"},
+            "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+            "category": "Development",
+        }
+    ]
 
     assert "[AI_INSTALL.md](AI_INSTALL.md)" in readme_text
     assert "https://github.com/shaoqing404/codex_with_cc_plus" in readme_text
     assert ".codex-plugin/plugin.json" in readme_text
+    assert ".agents/plugins/marketplace.json" in readme_text
     assert "docs/assets/codex-with-cc-plus-chain.svg" in readme_text
     assert "docs/assets/codex-with-cc-plus-state-machine.svg" in readme_text
     assert "安装或更新" in readme_text
@@ -54,3 +70,4 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert "不是仓库主身份" not in ai_install_text
     assert legacy_scope_phrase not in ai_install_text
     assert "Codex plugin entry" in ai_install_text
+    assert "codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master" in ai_install_text

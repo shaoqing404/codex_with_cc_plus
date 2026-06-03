@@ -10,13 +10,14 @@ def test_ai_install_doc_contract() -> None:
     assert "codex_with_cc_plus" in text
     assert "shaoqing404/codex_with_cc_plus" in text
     assert ".codex-plugin/plugin.json" in text
+    assert ".agents/plugins/marketplace.json" in text
     assert "skills/codex-with-cc/manifest.json" not in text
     assert "command -v codex" in text
     assert "npm i -g @openai/codex" in text
-    assert "codex plugin marketplace add aiskyhub/aiskyhub" in text
-    assert "codex-with-cc@aiskyhub" in text
-    assert "codex-with-cc-plus@shaoqing404" in text
-    assert "--scope user" in text
+    assert "codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master" in text
+    assert "codex plugin add codex-with-cc@codex-with-cc-plus" in text
+    assert "aiskyhub/aiskyhub" in text
+    assert "not required registration" in text
     assert "user-scope plugin install" in text
     assert "Do not mutate system Python" in text
     assert "Any mention of child-agent" in text
@@ -39,7 +40,7 @@ def test_ai_install_doc_contract() -> None:
     assert "$HOME/.codex/skills/codex-with-cc" in text
     assert "$env:USERPROFILE\\.codex\\skills\\codex-with-cc" in text
     assert "codex_with_cc/scripts/delegate_to_claude.py" not in text
-    assert "/plugin install codex-with-cc@aiskyhub --scope user" in text
+    assert "/plugin install codex-with-cc@aiskyhub --scope user" not in text
     assert "Codex plugin entry" in text
     assert "workflow/task/run" in text
     assert "artifact schema" in text

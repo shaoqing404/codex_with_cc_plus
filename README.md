@@ -85,40 +85,35 @@ Optional controls such as `-MaxBudgetUsd`, `-MaxTurns`, and `-IncludePartialMess
 
 ## Install
 
-### Marketplace
+### Codex Plugin Marketplace
 
-When the public marketplace entry is available:
-
-```bash
-codex plugin marketplace add aiskyhub/aiskyhub
-```
-
-Then in Codex:
-
-```text
-/plugin install codex-with-cc@aiskyhub --scope user
-```
-
-Personal marketplace form:
+This repository is self-indexed for Codex. Add this repository itself as a marketplace source:
 
 ```bash
-codex plugin marketplace add shaoqing404/marketplace
+codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master
 ```
 
-Then in Codex:
+Then install the plugin from that marketplace:
+
+```bash
+codex plugin add codex-with-cc@codex-with-cc-plus
+```
+
+The marketplace manifest lives at:
 
 ```text
-/plugin install codex-with-cc-plus@shaoqing404 --scope user
+.agents/plugins/marketplace.json
 ```
 
-Marketplace source should point at:
+The plugin manifest lives at:
 
-```json
-{
-  "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-  "manifest": ".codex-plugin/plugin.json"
-}
+```text
+.codex-plugin/plugin.json
 ```
+
+Optional public index registration is only for discovery. A PR to a third-party public marketplace such as `aiskyhub/aiskyhub` is not required for this repository to install in Codex, and `shaoqing404/aiskyhub` must not be treated as the project home.
+
+The project home is always `https://github.com/shaoqing404/codex_with_cc_plus`.
 
 ### Local Fallback
 

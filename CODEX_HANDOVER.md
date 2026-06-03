@@ -19,45 +19,20 @@
 
 ---
 
-### 任务二：协助用户将插件注册到 Codex 市场
+### 任务二：Codex 市场注册方式修正
 
-为方便后续其他项目通过一句话命令直接拉取安装，请你基于以下两种市场方案，编写自动化注册脚本或 PR 变更：
+本仓库已改为自带 Codex marketplace manifest，不需要 fork `aiskyhub/aiskyhub`，也不需要维护单独的 `shaoqing404/marketplace` 仓库。
 
-#### 选项 A：注册至公共市场 `aiskyhub/aiskyhub`
-请生成或协助提交一个 Pull Request 到 `https://github.com/aiskyhub/aiskyhub`。
-修改其 `.agents/plugins/marketplace.json` 中的 `codex-with-cc` 索引项为新仓库地址：
-```json
-{
-  "name": "codex-with-cc",
-  "description": "Codex with delegated Claude Code worker orchestration workflow",
-  "version": "1.0.6",
-  "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-  "manifest": ".codex-plugin/plugin.json"
-}
+主路径是把本仓库本身加入 Codex marketplace source：
+
+```bash
+codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master
+codex plugin add codex-with-cc@codex-with-cc-plus
 ```
 
-#### 选项 B：创建个人专属市场 `shaoqing404/marketplace`
-若用户选择自建个人专属市场，请协助在本地或通过 GitHub CLI 执行以下操作：
-1. 本地新建一个 `marketplace` 临时文件夹，在其中创建 `.agents/plugins/marketplace.json` 索引文件：
-   ```json
-   {
-     "marketName": "shaoqing404",
-     "plugins": {
-       "codex-with-cc-plus@shaoqing404": {
-         "name": "codex-with-cc-plus",
-         "description": "Codex with delegated Claude Code worker orchestration workflow",
-         "version": "1.0.6",
-         "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-         "manifest": ".codex-plugin/plugin.json"
-       }
-     }
-   }
-   ```
-2. 使用 `gh repo create shaoqing404/marketplace --public --source=. --push` 自动将其发布为个人专属 Codex 市场，并引导用户使用以下命令：
-   ```bash
-   codex plugin marketplace add shaoqing404/marketplace
-   /plugin install codex-with-cc-plus@shaoqing404 --scope user
-   ```
+仓库内的 `.agents/plugins/marketplace.json` 是 Codex marketplace 索引；`.codex-plugin/plugin.json` 是插件本体 manifest。
+
+向 `aiskyhub/aiskyhub` 之类第三方公共市场提交 PR 只能作为“额外发现入口”，不是项目归属，也不是安装必需条件。`shaoqing404/aiskyhub` fork 不应作为 Codex With CC Plus 的维护仓库。
 
 ---
 

@@ -81,41 +81,31 @@ Ensure Codex CLI exists:
 command -v codex || npm i -g @openai/codex
 ```
 
-Add public marketplace:
+Add this repository itself as the Codex marketplace source:
 
 ```bash
-codex plugin marketplace add aiskyhub/aiskyhub
+codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master
 ```
 
-Then install in Codex:
-
-```text
-/plugin install codex-with-cc@aiskyhub --scope user
-```
-
-Personal marketplace option:
+Install the plugin from that marketplace:
 
 ```bash
-codex plugin marketplace add shaoqing404/marketplace
+codex plugin add codex-with-cc@codex-with-cc-plus
 ```
 
-Then:
+This works because the repository includes:
 
 ```text
-/plugin install codex-with-cc-plus@shaoqing404 --scope user
+.agents/plugins/marketplace.json
 ```
 
-Marketplace entry should point at:
+The plugin itself still uses:
 
-```json
-{
-  "name": "codex-with-cc",
-  "description": "Codex with delegated Claude Code worker orchestration workflow",
-  "version": "1.0.6",
-  "repository": "https://github.com/shaoqing404/codex_with_cc_plus.git",
-  "manifest": ".codex-plugin/plugin.json"
-}
+```text
+.codex-plugin/plugin.json
 ```
+
+Do not fork or depend on `aiskyhub/aiskyhub` for the normal install path. A third-party public marketplace PR is optional distribution, not ownership and not required registration.
 
 ## Local Fallback Install
 

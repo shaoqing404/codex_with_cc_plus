@@ -51,8 +51,9 @@ def test_codex_with_cc_skill_contract() -> None:
     assert codex_manifest["name"] == "codex-with-cc"
     assert re.fullmatch(r"1\.0\.6(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_manifest["version"])
     assert codex_manifest["skills"] == "./skills/"
-    assert "aiskyhub" in codex_manifest["interface"]["longDescription"]
-    assert any("aiskyhub/aiskyhub" in prompt for prompt in codex_manifest["interface"]["defaultPrompt"])
+    assert "self-indexed" in codex_manifest["interface"]["longDescription"]
+    assert any("shaoqing404/codex_with_cc_plus" in prompt for prompt in codex_manifest["interface"]["defaultPrompt"])
+    assert any("codex-with-cc@codex-with-cc-plus" in prompt for prompt in codex_manifest["interface"]["defaultPrompt"])
 
     text = skill_md.read_text(encoding="utf-8")
     frontmatter = re.match(r"^---\n(.*?)\n---", text, re.DOTALL)

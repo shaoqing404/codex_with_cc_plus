@@ -1,0 +1,20 @@
+{
+  "name": "codex-with-cc-plus",
+  "interface": {
+    "displayName": "Codex With CC Plus"
+  },
+  "plugins": [
+    {
+      "name": "codex-with-cc",
+      "source": {
+        "source": "url",
+        "url": "https://github.com/shaoqing404/codex_with_cc_plus.git"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    }
+  ]
+}
