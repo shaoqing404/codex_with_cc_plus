@@ -9,7 +9,7 @@ Read this file before using the workflow in this repository. Treat `contract.jso
 1. Any child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, 子代理, 子线程, 多代理, 委派, 派工, or 执行层 request must use this workflow.
 2. Do not replace it with the default Codex subagent flow, host worker shortcuts, direct `claude`, or direct main-thread `delegate_to_claude.*`.
 3. The Codex main thread owns design, task boundaries, acceptance criteria, review decisions, rework decisions, and final delivery.
-4. Every Claude Code worker run must be carried by a fresh Codex `spawn_agent` child thread using `model: gpt-5.3-codex`, `reasoning_effort: medium`, and `fork_context: false`.
+4. Every Claude Code worker run must be carried by a fresh Codex `spawn_agent` child thread using `model: gpt-5.4-mini`, `reasoning_effort: medium`, and `fork_context: false`.
 5. The child thread must set `CODEX_CLAUDE_CHILD_THREAD=1` before invoking `delegate_to_claude.*`.
 6. Delegate commands must use task-file-only invocation. `-TaskFile`, `-WorkflowId`, `-TaskId`, `-Role`, and `-SessionKey` are required.
 7. Legacy inline `-Task`, legacy `-Mode`, missing workflow metadata, and implicit session-key fallback are not supported.
@@ -59,6 +59,16 @@ Every `-TaskFile` must contain these sections:
 
 The runtime rejects task files that do not contain these sections, leave required sections empty, retain obvious placeholders, or omit required report headings from `Report Requirements`. This makes worker context explicit and prevents old one-line prompts from acting as hidden orchestration.
 
+`validate_delegate_task.*` is the local deterministic task-file gate. It only checks TaskFile structure, role/reviewer metadata, declared `-Tests` coverage, required sections, placeholders, and report headings. It does not call DeepSeek, Claude, or any OpenAI-compatible model, and it does not consume model tokens.
+
+Runner separation:
+
+- Task file format check: local `validate_delegate_task.*`; no model call; hard gate.
+- Implementation work: `delegate_to_claude.*` carried by a Codex child thread, then Claude Code CLI.
+- Report, audit, preflight, final-verifier, and normalization work: `delegate_to_openai_compatible_report.*` carried by a Codex child thread, then DeepSeek Flash or another OpenAI-compatible model.
+
+Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain validation failures or draft a corrected TaskFile, but only as an authoring assistant. It must not edit business files, must not run shell tests, must not dispatch implementation work, and its report must state `mayOverrideValidator=false`. The deterministic `validate_delegate_task.*` result remains the only hard gate for whether a TaskFile is dispatchable.
+
 Pre-dispatch validation:
 
 ```powershell
@@ -73,6 +83,19 @@ pwsh -NoProfile -File <installed-workflow-root>\windows_scripts\validate_delegat
   -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
   -Role implementer \
   -Tests "pytest -q"
+```
+
+When using a trusted local terminal fallback in `zsh`, avoid assigning `WORKFLOW_ROOT=...` and expanding `"$WORKFLOW_ROOT/..."` in the same simple command. Use an exported variable in a prior command, or call the absolute script path directly:
+
+```bash
+env CODEX_CLAUDE_CHILD_THREAD=1 \
+  /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_claude.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<task-file>.md \
+  -WorkflowId <workflow-id> \
+  -TaskId <task-id> \
+  -Role implementer \
+  -SessionKey <stable-session-key> \
+  -Scope <changed-or-inspected-path>
 ```
 
 ## Platform Hook Gate

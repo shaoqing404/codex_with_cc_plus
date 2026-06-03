@@ -97,9 +97,17 @@ def test_contract_json_is_single_source_for_runtime_constants() -> None:
     assert contract["reportHeadings"] == list(REPORT_HEADINGS)
     assert contract["childThread"]["markerName"] == "CODEX_CLAUDE_CHILD_THREAD"
     assert contract["childThread"]["markerValue"] == "1"
-    assert contract["spawn"]["model"] == "gpt-5.3-codex"
+    assert contract["spawn"]["model"] == "gpt-5.4-mini"
     assert contract["spawn"]["reasoningEffort"] == "medium"
     assert contract["spawn"]["forkContext"] is False
+    assert contract["taskValidation"]["runnerType"] == "local_static"
+    assert contract["taskValidation"]["modelCalls"] is False
+    assert contract["taskValidation"]["consumesModelTokens"] is False
+    assert contract["taskValidation"]["hardGate"] is True
+    assert contract["taskFileAssist"]["runnerType"] == "openai_compatible_report"
+    assert contract["taskFileAssist"]["defaultModel"] == "deepseek-v4-flash"
+    assert contract["taskFileAssist"]["mayOverrideValidator"] is False
+    assert contract["taskFileAssist"]["requiresLocalValidationAfterAssist"] is True
     assert "delegateEntrypointPatterns" in contract
     assert contract["delegateEntrypointPattern"] in contract["delegateEntrypointPatterns"]
     assert "-Task" in contract["legacy"]["forbiddenArgs"]
@@ -126,7 +134,7 @@ def test_hook_gate_reads_spawn_requirements_from_contract_json() -> None:
                         "Set CODEX_CLAUDE_CHILD_THREAD=1 and run delegate_to_claude.ps1 "
                         "-TaskFile task.md -WorkflowId wf -TaskId task -Role researcher -SessionKey wf"
                     ),
-                    "model": "gpt-5.3-codex",
+                    "model": "gpt-5.4-mini",
                     "reasoning_effort": "medium",
                     "fork_context": False,
                 },

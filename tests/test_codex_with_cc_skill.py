@@ -89,7 +89,7 @@ def test_codex_with_cc_skill_contract() -> None:
         "TaskId",
         "Role",
         "current working directory",
-        "gpt-5.3-codex",
+        "gpt-5.4-mini",
         "fork_context: false",
         "Status",
         "Role",
@@ -120,6 +120,9 @@ def test_codex_with_cc_skill_contract() -> None:
     assert "workflow/task/run" in contract
     assert "Workflow Method" in contract
     assert "Review in two passes" in contract
+    assert "local deterministic task-file gate" in contract
+    assert "does not consume model tokens" in contract
+    assert "mayOverrideValidator=false" in contract
     assert "Status and Final Result must match" in contract
     assert "planner" in contract
     assert "implementer" in contract

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 
 const FALLBACK_CONTRACT = {
   childThread: { markerName: "CODEX_CLAUDE_CHILD_THREAD", markerValue: "1" },
-  spawn: { model: "gpt-5.3-codex", reasoningEffort: "medium", forkContext: false },
+  spawn: { model: "gpt-5.4-mini", reasoningEffort: "medium", forkContext: false },
   workerRoles: ["planner", "implementer", "researcher", "reviewer", "final-verifier"],
   triggerPatterns: [
     "child[- ]?agent",
@@ -32,9 +32,10 @@ const FALLBACK_CONTEXT = [
   "- Do not use the default Codex subagent flow, a host-provided worker shortcut, direct claude execution, or direct main-thread delegate_to_claude.* execution.",
   "- Use the staged flow: plan task graph, dispatch bounded tasks, execute with scoped worker context, review spec compliance, review quality, then verify the workflow.",
   "- Implementer workflows require spec review, quality review, and final-verifier acceptance.",
-  "- Child spawn metadata must be model: gpt-5.3-codex, reasoning_effort: medium, fork_context: false.",
+  "- Child spawn metadata must be model: gpt-5.4-mini, reasoning_effort: medium, fork_context: false.",
   "- The child must set CODEX_CLAUDE_CHILD_THREAD=1 and call delegate_to_claude.* with -TaskFile, -WorkflowId, -TaskId, -Role, and -SessionKey.",
-  "- Use validate_delegate_task.* to preflight generated TaskFiles when review metadata or -Tests are involved.",
+  "- Use local validate_delegate_task.* to preflight generated TaskFiles when review metadata or -Tests are involved; it is the deterministic zero-token hard gate.",
+  "- DeepSeek/OpenAI-compatible report runners may assist with task-file drafting or audits, but mayOverrideValidator=false and local validation still decides dispatchability.",
   "- Legacy inline -Task and -Mode delegate arguments are forbidden.",
 ].join("\n");
 

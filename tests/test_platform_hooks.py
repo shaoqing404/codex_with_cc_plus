@@ -98,7 +98,7 @@ def test_pre_tool_use_denies_non_compliant_spawn_agent_payload() -> None:
 
     assert specific["hookEventName"] == "PreToolUse"
     assert specific["permissionDecision"] == "deny"
-    assert "gpt-5.3-codex" in reason
+    assert "gpt-5.4-mini" in reason
     assert "delegate_to_claude" in reason
     assert "fork_context: false" in reason
 
@@ -119,7 +119,7 @@ def test_pre_tool_use_denies_namespaced_spawn_agent_payload() -> None:
     reason = hook_specific(output)["permissionDecisionReason"]
 
     assert "blocked functions.spawn_agent" in reason
-    assert "gpt-5.3-codex" in reason
+    assert "gpt-5.4-mini" in reason
     assert "delegate_to_claude" in reason
 
 
@@ -146,7 +146,7 @@ def test_pre_tool_use_denies_spawn_agent_inside_parallel_wrapper() -> None:
     reason = hook_specific(output)["permissionDecisionReason"]
 
     assert "blocked nested functions.spawn_agent" in reason
-    assert "gpt-5.3-codex" in reason
+    assert "gpt-5.4-mini" in reason
     assert "delegate_to_claude" in reason
 
 
@@ -163,7 +163,7 @@ def test_pre_tool_use_allows_compliant_spawn_agent_payload() -> None:
                     "-WorkflowId wf-a -TaskId task-a -Role researcher -SessionKey wf-a "
                     "-Scope skills/codex-with-cc"
                 ),
-                "model": "gpt-5.3-codex",
+                "model": "gpt-5.4-mini",
                 "reasoning_effort": "medium",
                 "fork_context": False,
             },
@@ -187,7 +187,7 @@ def test_pre_tool_use_allows_compliant_spawn_agent_payload_with_runner_descripti
                     "-WorkflowId wf-a -TaskId task-a -Role researcher -SessionKey wf-a "
                     "-Scope skills/codex-with-cc"
                 ),
-                "model": "gpt-5.3-codex",
+                "model": "gpt-5.4-mini",
                 "reasoning_effort": "medium",
                 "fork_context": False,
             },

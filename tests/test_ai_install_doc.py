@@ -28,6 +28,12 @@ def test_ai_install_doc_contract() -> None:
     assert "codex-with-cc-plus@shaoqing404" in text
     assert "--scope user" in text
     assert "$codex-with-cc" in text
+    assert "`validate_delegate_task.*` 是本地静态验证器" in text
+    assert "不调用 DeepSeek、Claude 或 OpenAI-compatible API，不消耗模型 token" in text
+    assert "mayOverrideValidator=false" in text
+    assert "Task file 格式检查" in text
+    assert "零 token 确定性硬门" in text
+    assert "env CODEX_CLAUDE_CHILD_THREAD=1" in text
     assert "docs/codex_with_cc" in text
     assert "doc/codex_with_cc" in text
     assert ".codex/skills/codex-with-cc" in text

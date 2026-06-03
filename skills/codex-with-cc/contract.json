@@ -7,9 +7,24 @@
     "markerValue": "1"
   },
   "spawn": {
-    "model": "gpt-5.3-codex",
+    "model": "gpt-5.4-mini",
     "reasoningEffort": "medium",
     "forkContext": false
+  },
+  "taskValidation": {
+    "runnerType": "local_static",
+    "entrypointPattern": "validate_delegate_task(?:\\.(?:ps1|sh|cmd|bat))?",
+    "modelCalls": false,
+    "consumesModelTokens": false,
+    "hardGate": true
+  },
+  "taskFileAssist": {
+    "runnerType": "openai_compatible_report",
+    "defaultModel": "deepseek-v4-flash",
+    "mayOverrideValidator": false,
+    "canEditBusinessFiles": false,
+    "canRunShellTests": false,
+    "requiresLocalValidationAfterAssist": true
   },
   "workerRoles": [
     "planner",

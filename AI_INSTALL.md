@@ -39,6 +39,9 @@ Codex 主线程 -> Codex spawn_agent 子线程 -> 已安装插件中的 delegate
 - 委派命令必须使用 task-file-only 形态：`-TaskFile`、`-WorkflowId`、`-TaskId`、`-Role`、`-SessionKey` 都是必填。
 - TaskFile 必须包含 `Goal`、`Allowed Scope`、`Forbidden Actions`、`Acceptance Criteria`、`Verification`、`Report Requirements`。
 - TaskFile 不能为空段、不能保留明显占位符，`Report Requirements` 必须列出完整报告标题；复杂任务派发前可先运行 `validate_delegate_task.*` 预检。
+- `validate_delegate_task.*` 是本地静态验证器，只检查 TaskFile 格式、角色/reviewer 元数据、声明的 `-Tests` 覆盖和报告标题；它不调用 DeepSeek、Claude 或 OpenAI-compatible API，不消耗模型 token。
+- DeepSeek Flash 默认只用于 `delegate_to_openai_compatible_report.*` 这条报告型 worker 链路，例如 preflight、audit、final-verifier、报告归一化和可选 task-file assist。
+- 可选 task-file assist 只能解释本地验证失败或建议修正版 TaskFile，必须在报告中写明 `mayOverrideValidator=false`，且最终仍要通过 `validate_delegate_task.*` 才能派发。
 - 旧式 inline `-Task`、旧式 `-Mode`、隐式 session key fallback 都不保留。
 - reviewer 必须额外传 `-ReviewForTaskId` 和 `-ReviewKind spec` 或 `-ReviewKind quality`。
 - worker 报告必须使用 `Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups`，并且 `Status` 与 `Final Result` 必须一致。
@@ -339,6 +342,24 @@ dry-run 成功后，默认应能在当前项目看到 `.codex/codex_with_cc/clau
 
 ## 委派规则
 
+三层 runner 分工：
+
+```text
+Task file 格式检查
+-> 本地 validate_delegate_task.*
+-> 零 token 确定性硬门
+
+实现型任务
+-> Codex child thread
+-> delegate_to_claude.*
+-> Claude Code CLI
+
+报告/审计型任务
+-> Codex child thread
+-> delegate_to_openai_compatible_report.*
+-> DeepSeek Flash 或兼容 OpenAI API
+```
+
 Windows 子线程标准调用形态：
 
 ```powershell
@@ -368,6 +389,37 @@ export CODEX_CLAUDE_CHILD_THREAD=1
   -SessionMode PrimaryReuse \
   -BypassPermissions
 ```
+
+`zsh` trusted local terminal fallback 注意事项：不要在同一个 simple command 里先写 `WORKFLOW_ROOT=...` 又立刻展开 `"$WORKFLOW_ROOT/..."`，因为展开发生在赋值进入当前 shell 之前。推荐直接使用完整路径：
+
+```bash
+env CODEX_CLAUDE_CHILD_THREAD=1 \
+  /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_claude.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<HHmmssfff>-<short-id>-<task-file>.md \
+  -WorkflowId <workflow-id> \
+  -TaskId <task-id> \
+  -Role implementer \
+  -SessionKey <stable-session-key> \
+  -Scope <changed-or-inspected-path> \
+  -SessionMode PrimaryReuse \
+  -BypassPermissions
+```
+
+可选 task-file assist 使用报告型 runner，而不是替代本地验证器。assist 任务自身必须是合规 TaskFile，目标是读取一个草稿或失败信息并输出修正版建议：
+
+```bash
+env CODEX_CLAUDE_CHILD_THREAD=1 DEEPSEEK_MODEL=deepseek-v4-flash \
+  /absolute/path/to/skills/codex-with-cc/macos_scripts/delegate_to_openai_compatible_report.sh \
+  -TaskFile ./.codex/codex_with_cc/tasks/<yyyyMMdd>/<assist-task-file>.md \
+  -WorkflowId <workflow-id> \
+  -TaskId taskfile-assist \
+  -Role planner \
+  -SessionKey <stable-session-key> \
+  -Scope ./.codex/codex_with_cc/tasks \
+  -Tests "report-only; do not run shell commands; mayOverrideValidator=false"
+```
+
+assist 输出只能作为改稿建议。改完实际 TaskFile 后，必须再次运行 `validate_delegate_task.*`。
 
 reviewer 任务必须额外传：
 
