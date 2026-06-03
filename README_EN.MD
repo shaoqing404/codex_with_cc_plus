@@ -1,18 +1,12 @@
 # Codex With CC Plus
 
-Codex With CC Plus 是一套给 Codex 用的可审计多 worker 工作流：Codex 主线程负责拆解、派工、验收和最终判断；昂贵、长时间、会改代码的实现任务交给 Claude Code；便宜、高频、只读的报告和审计任务交给 DeepSeek、MiniMax、MiMo 或其他 OpenAI-compatible API。
+Codex With CC Plus is an auditable multi-worker workflow for Codex. Codex stays the planner, dispatcher, reviewer, acceptance owner, and final judge. Expensive, long-running implementation work that changes code is delegated to Claude Code, while low-cost, high-frequency, read-only report and audit work can run through DeepSeek, MiniMax, MiMo, or another OpenAI-compatible API.
 
-Codex With CC Plus is an auditable multi-worker workflow for Codex: Codex stays the planner and final judge, while expensive implementation work is delegated through Claude Code, and low-cost report/audit work can run through DeepSeek Flash or another OpenAI-compatible API.
+If you are Codex and the user asks you to install or update this workflow, read [AI_INSTALL.md](AI_INSTALL.md) first.
 
-如果你是 Codex，用户要求安装或更新这个工作流时，请先读 [AI_INSTALL.md](AI_INSTALL.md)。
+## Token Price Snapshot
 
-If you are Codex and the user asks you to install or update this workflow, read [AI_INSTALL.md](AI_INSTALL.md).
-
-## 模型价格速览 / Token Price Snapshot
-
-价格会变，下面只作为 2026-06-03 的架构选型参考；最终账单和精确 API model id 请以官网为准。
-
-Prices change. This table is a 2026-06-03 routing reference only; use the official pricing pages as the source of truth for final billing and exact API model ids.
+Prices change. This table is a routing reference as of 2026-06-03 only. Use the official pricing pages as the source of truth for final billing and exact API model ids.
 
 | Provider | Model / Tier | Context note | Input cache hit / 1M tokens | Input cache miss / 1M tokens | Output / 1M tokens | Official link |
 | --- | --- | --- | ---: | ---: | ---: | --- |
@@ -24,19 +18,15 @@ Prices change. This table is a 2026-06-03 routing reference only; use the offici
 | MiMo | MiMo 2.5 overseas PAYG | 1M context, 128K max output | $0.0028 | $0.14 | $0.28 | [MiMo Pay-as-you-go](https://platform.xiaomimimo.com/docs/en-US/price/pay-as-you-go) |
 | MiMo | MiMo Flash overseas PAYG | 256K context, 64K max output | $0.01 | $0.10 | $0.30 | [MiMo Pay-as-you-go](https://platform.xiaomimimo.com/docs/en-US/price/pay-as-you-go) |
 
-这就是 Codex With CC Plus 让人兴奋的地方：不是把所有事情都塞给一个最贵的大脑硬扛，而是把每一分钱花在正确的位置。便宜模型可以不停做 preflight、归一化、报告审计、失败解释；Claude Code 专心做真正需要动手的实现；Codex 主线程保持清醒，像项目负责人一样看证据、收口、决定是否接受。那种“主线程等到发烫、日志淹死人、worker 写到哪里都不知道”的感觉，会一下子轻很多。
-
 This is the fun part: the workflow does not burn the most expensive model on every tiny judgment. Cheap models can handle preflight, normalization, report review, and failure forensics. Claude Code focuses on real implementation. Codex main thread stays clear-headed, reviews evidence, and owns acceptance. The whole thing feels less like waiting in a fog and more like running a small, accountable engineering room.
 
 ![Codex With CC Plus execution chain](docs/assets/codex-with-cc-plus-chain.svg)
 
 ![Codex With CC Plus state machine](docs/assets/codex-with-cc-plus-state-machine.svg)
 
-## 它能做什么 / What It Does
+## What It Does
 
-Codex With CC Plus 会把一句模糊的“用子代理做”变成一条有状态、有边界、有证据的工作流。
-
-Codex With CC Plus turns a vague “use subagents” request into a controlled workflow:
+Codex With CC Plus turns a vague “use subagents” request into a controlled workflow with state, boundaries, and evidence:
 
 - Codex main thread plans the task graph, defines scope, reviews evidence, and decides final acceptance.
 - Task files make worker intent explicit: `Goal`, `Allowed Scope`, `Forbidden Actions`, `Acceptance Criteria`, `Verification`, and `Report Requirements`.
@@ -48,35 +38,21 @@ Codex With CC Plus turns a vague “use subagents” request into a controlled w
 
 The big idea is simple: let workers do the noisy work, but keep accountability with Codex main thread and the human.
 
-核心很简单：让 worker 去做嘈杂的工作，但把责任、证据和最终判断留在 Codex 主线程和人手里。
-
-## 为什么需要它 / Why It Exists
-
-大型 AI 编码任务常常不是输在模型不聪明，而是输在过程失控：主线程被日志拖进泥里，worker 上下文说不清，并行写入互相踩，review 只信摘要，长实现任务让主线程白白等待。
+## Why It Exists
 
 Large AI coding tasks often fail in boring ways: the main agent gets buried in logs, worker context is implicit, parallel writes overlap, reviews trust summaries too much, and long implementation runs make the main thread wait while nothing useful happens.
 
-Codex With CC Plus 给这个过程加上状态机。它不是魔法 prompt，而是一套围绕 TaskFile、child-thread dispatch、确定性验证、artifacts、review gate 和最终验收的小协议。
-
 Codex With CC Plus gives that process a state machine. It is not a magic prompt. It is a small protocol for task files, child-thread dispatch, deterministic validation, artifacts, review gates, and final acceptance.
 
-## 学习关系 / Learning Relationship
+## Learning Relationship
 
-本项目学习并参考了原始 `codex-with-cc` / Codex with CC 工作流思想：Codex 做主控，Claude Code 做执行 worker，再用更便宜的模型层承接高频判断。Codex With CC Plus 是一个独立延续，重点放在更严格的 artifacts、OpenAI-compatible report runner、`ccviz` 可观测性和 Codex plugin / marketplace 分发。
-
-This project learns from and references the original `codex-with-cc` / Codex with CC workflow idea: Codex as leader, Claude Code as execution worker, and a cheaper model layer for high-volume reasoning. Codex With CC Plus is an independent continuation focused on stricter artifacts, OpenAI-compatible report runners, `ccviz` observability, and marketplace/plugin distribution.
-
-复用本项目时，请保留 attribution 和 MIT license。
+This project learns from and references the original `codex-with-cc` / Codex with CC workflow idea: Codex as leader, Claude Code as execution worker, and a cheaper model layer for high-volume reasoning. Codex With CC Plus is an independent continuation focused on stricter artifacts, OpenAI-compatible report runners, `ccviz` observability, and Codex plugin / marketplace distribution.
 
 If you reuse this work, preserve the attribution and the MIT license.
 
-## 平台建议 / Platform Recommendation
-
-优先使用 macOS。
+## Platform Recommendation
 
 Use macOS first.
-
-强烈建议优先在 macOS 使用。
 
 The main development path, real long-running worker path, shell wrappers, and runtime self-tests are maintained primarily on macOS. Windows wrappers are kept as thin compatibility entrypoints and are tested, but they are not the recommended first-line operating environment.
 
@@ -106,13 +82,13 @@ Final judgment
 
 Long implementation tasks should be allowed to finish. Do not make Codex main thread sleep and babysit. Record `RunId`, `statusPath`, `rawStreamPath`, and `tracePath`, then reconnect through `ccviz show`, `ccviz audit`, or status JSON checkpoints.
 
-main 不要干烧。
+Do not let the main thread burn cycles idling.
 
 Optional controls such as `-MaxBudgetUsd`, `-MaxTurns`, and `-IncludePartialMessages` are explicit observability or emergency brake tools. They are not default limits.
 
 ## State Machine
 
-1. **Intent**: the user asks for child-agent / subagent / delegation / 子代理 / 委派 / 多代理 work.
+1. **Intent**: the user asks for child-agent / subagent / delegation / multi-agent work.
 2. **Plan**: Codex main thread creates scoped TaskFiles.
 3. **Validate**: local `validate_delegate_task.*` checks structure and metadata.
 4. **Dispatch**: Codex creates a child thread with `model: gpt-5.4-mini`, `reasoning_effort: medium`, and `fork_context: false`.
@@ -164,13 +140,13 @@ cp -r codex_with_cc_plus/skills/codex-with-cc ~/.codex/skills/
 Then ask Codex inside your target project:
 
 ```text
-请把本地 ~/.codex/skills/codex-with-cc 子代理工作流绑定并应用到我当前的项目中。
+Bind and apply the local ~/.codex/skills/codex-with-cc subagent workflow to my current project.
 ```
 
 Repository install/update prompt:
 
 ```text
-请把 https://github.com/shaoqing404/codex_with_cc_plus 子代理工作流安装或更新到当前 Codex 环境。
+Install or update the https://github.com/shaoqing404/codex_with_cc_plus subagent workflow in the current Codex environment.
 ```
 
 ## Environment
@@ -191,19 +167,19 @@ Supported API key aliases include `OPENAI_API_KEY` and `OPENAI_COMPATIBLE_API_KE
 Use these prompts to trigger the workflow:
 
 ```text
-你负责拆解、派工、审核和最终交付。请把这个任务拆成多个 codex-with-cc 子代理任务，每个任务必须有 TaskFile、Allowed Scope、Forbidden Actions、Verification 和 Report Requirements。实现型任务走 Claude Code，报告/审计型任务走 DeepSeek Flash。你负责最终验收，不要让 worker 自己扩大范围。
+You are responsible for decomposition, dispatch, review, and final delivery. Split this task into multiple codex-with-cc subagent tasks. Each task must include a TaskFile, Allowed Scope, Forbidden Actions, Verification, and Report Requirements. Send implementation tasks to Claude Code and report/audit tasks to DeepSeek Flash. You own final acceptance; do not let workers expand their own scope.
 ```
 
 ```text
-请用 codex-with-cc 多子线程流程审计这个项目：一个 researcher 查架构，一个 researcher 查测试风险，一个 planner 给改造计划，一个 reviewer 攻击计划漏洞。所有报告必须可追踪到 artifacts，最后你汇总结论和下一步实现 prompt。
+Use the codex-with-cc multi-child-thread workflow to audit this project: one researcher reviews architecture, one researcher reviews testing risk, one planner proposes the migration plan, and one reviewer attacks weaknesses in the plan. All reports must be traceable to artifacts. Finally, summarize the conclusion and the next implementation prompt.
 ```
 
 ```text
-请安排一个 implementer 子代理实现最小改动，再安排 spec reviewer 和 quality reviewer 分别审查。review 不通过就打回返工。最后跑 verify_delegate_workflow 和项目测试后再交付。
+Schedule one implementer subagent to make the smallest viable change, then schedule a spec reviewer and quality reviewer to review it separately. If review fails, send it back for rework. Finally run verify_delegate_workflow and the project tests before delivery.
 ```
 
 ```text
-这个任务可能很长。请拆成互不冲突的 worker scope，允许 Claude Code worker 长跑完成正式报告；主线程不要 sleep 陪跑，只记录 RunId/status/stream/trace，并用 ccviz 做检查点接管。
+This task may be long. Split it into non-conflicting worker scopes. Allow the Claude Code worker to run long enough to produce a formal report. The main thread should not sleep and babysit; it should only record RunId/status/stream/trace and use ccviz for checkpoint handoff.
 ```
 
 ## Common Commands
