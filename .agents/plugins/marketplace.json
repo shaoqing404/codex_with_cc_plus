@@ -5,7 +5,7 @@
   },
   "plugins": [
     {
-      "name": "codex-with-cc",
+      "name": "codex-with-cc-plus",
       "source": {
         "source": "url",
         "url": "https://github.com/shaoqing404/codex_with_cc_plus.git"

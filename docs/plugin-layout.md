@@ -19,6 +19,6 @@ The delegated runtime, hook gate, and contract tests assume that `skills/codex-w
 ## Installation paths
 
 - Source layout: this repository exposes `.codex-plugin/plugin.json` so it can be recognized as a Codex plugin source.
-- Public marketplace path: register `codex-with-cc` in `aiskyhub/aiskyhub` with repository `https://github.com/shaoqing404/codex_with_cc_plus.git` and manifest `.codex-plugin/plugin.json`.
-- Personal marketplace path: register an alias such as `codex-with-cc-plus@shaoqing404` in `shaoqing404/marketplace`, also pointing at `.codex-plugin/plugin.json`.
+- Public marketplace path: register `codex-with-cc-plus` in `aiskyhub/aiskyhub` with repository `https://github.com/shaoqing404/codex_with_cc_plus.git` and manifest `.codex-plugin/plugin.json`.
+- Personal marketplace path: register `codex-with-cc-plus@shaoqing404` in `shaoqing404/marketplace`, also pointing at `.codex-plugin/plugin.json`.
 - Local fallback path: clone this repository and copy `skills/codex-with-cc` to `$HOME/.codex/skills/codex-with-cc`.

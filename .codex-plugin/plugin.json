@@ -1,5 +1,5 @@
 {
-  "name": "codex-with-cc",
+  "name": "codex-with-cc-plus",
   "version": "1.0.6",
   "description": "A Codex plugin for delegating Codex child-agent work to Claude Code CLI with workflow artifacts.",
   "author": {
@@ -17,7 +17,7 @@
   "skills": "./skills/",
   "hooks": "./hooks/hooks.json",
   "interface": {
-    "displayName": "Codex With CC",
+    "displayName": "Codex With CC Plus",
     "shortDescription": "Codex plugin for the Claude Code delegation workflow.",
     "longDescription": "Routes Codex main thread planning into staged Codex child-agent execution that is handed off to Claude Code CLI with workflow/task/run artifacts. The repository is self-indexed for Codex plugin installation through its bundled .agents/plugins/marketplace.json manifest.",
     "developerName": "shaoqing404",
@@ -29,7 +29,7 @@
     "defaultPrompt": [
       "Use the codex-with-cc workflow to delegate child-agent implementation through Claude Code CLI.",
       "Review this repository and explain how Codex main thread planning flows into workflow/task/run Claude Code CLI execution.",
-      "Add shaoqing404/codex_with_cc_plus as a Codex plugin marketplace, then install codex-with-cc@codex-with-cc-plus for user scope."
+      "Add shaoqing404/codex_with_cc_plus as a Codex plugin marketplace, then install codex-with-cc-plus@codex-with-cc-plus for user scope."
     ]
   }
 }

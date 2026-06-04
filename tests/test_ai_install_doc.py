@@ -15,7 +15,7 @@ def test_ai_install_doc_contract() -> None:
     assert "command -v codex" in text
     assert "npm i -g @openai/codex" in text
     assert "codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master" in text
-    assert "codex plugin add codex-with-cc@codex-with-cc-plus" in text
+    assert "codex plugin add codex-with-cc-plus@codex-with-cc-plus" in text
     assert "aiskyhub/aiskyhub" in text
     assert "not required registration" in text
     assert "user-scope plugin install" in text

@@ -19,7 +19,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert skill_path.exists()
 
     codex_plugin = json.loads(codex_plugin_path.read_text(encoding="utf-8"))
-    assert codex_plugin["name"] == "codex-with-cc"
+    assert codex_plugin["name"] == "codex-with-cc-plus"
     assert codex_plugin["version"] == "1.0.6"
     assert codex_plugin["repository"] == "https://github.com/shaoqing404/codex_with_cc_plus"
     assert codex_plugin["skills"] == "./skills/"
@@ -27,7 +27,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert (repo / "hooks" / "hooks.json").exists()
 
     codex_interface = codex_plugin["interface"]
-    assert codex_interface["displayName"] == "Codex With CC"
+    assert codex_interface["displayName"] == "Codex With CC Plus"
     assert "Codex" in codex_interface["shortDescription"]
     assert "Claude Code" in codex_interface["shortDescription"]
     assert "self-indexed" in codex_interface["longDescription"]
@@ -35,14 +35,14 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert "Read" in codex_interface["capabilities"]
     assert "Write" in codex_interface["capabilities"]
     assert any("shaoqing404/codex_with_cc_plus" in prompt for prompt in codex_interface["defaultPrompt"])
-    assert any("codex-with-cc@codex-with-cc-plus" in prompt for prompt in codex_interface["defaultPrompt"])
+    assert any("codex-with-cc-plus@codex-with-cc-plus" in prompt for prompt in codex_interface["defaultPrompt"])
 
     marketplace = json.loads(marketplace_path.read_text(encoding="utf-8"))
     assert marketplace["name"] == "codex-with-cc-plus"
     assert marketplace["interface"]["displayName"] == "Codex With CC Plus"
     assert marketplace["plugins"] == [
         {
-            "name": "codex-with-cc",
+            "name": "codex-with-cc-plus",
             "source": {"source": "url", "url": "https://github.com/shaoqing404/codex_with_cc_plus.git"},
             "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
             "category": "Development",
