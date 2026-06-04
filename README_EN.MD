@@ -1,6 +1,6 @@
 # Codex With CC Plus
 
-[中文](README.MD) | English
+[中文](README.md) | English
 
 Codex With CC Plus is an auditable multi-worker workflow for Codex. Codex stays the planner, dispatcher, reviewer, acceptance owner, and final judge. Expensive, long-running implementation work that changes code is delegated to Claude Code, while low-cost, high-frequency, read-only report and audit work can run through DeepSeek, MiniMax, MiMo, or another OpenAI-compatible API.
 
