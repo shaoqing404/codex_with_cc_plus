@@ -101,6 +101,42 @@ main 不要干烧。
 
 ## 安装
 
+### 软件版本
+
+安装实际用到的软件和建议版本如下。
+
+**运行期必需**
+
+| 软件 | 本机实际版本 | 建议版本 | 用途 |
+|---|---:|---:|---|
+| Codex CLI | `0.137.0` | `>= 0.137.0` | `plugin marketplace/list/add/remove` |
+| Node.js | `v24.15.0` | `>= 20 LTS` | 运行插件 hooks，`hooks.json` 里直接调用 `node --input-type=module` |
+| zsh | `5.9` | `>= 5.9` | macOS wrapper 脚本 |
+| Python | `3.14.5` | 运行期 `>= 3.9`，测试建议 `>= 3.11` | delegate/runtime/ccviz/verify 脚本 |
+| Claude Code CLI | `2.1.141` | `>= 2.1.141` 或最新版 | 真实 `delegate_to_claude` worker 执行 |
+
+**安装/验证用到**
+
+| 软件 | 本机实际版本 | 建议版本 | 用途 |
+|---|---:|---:|---|
+| Git | `2.48.1` | `>= 2.40` | marketplace 拉取 GitHub 仓库 |
+| curl | `8.7.1` | `>= 8.0` | 我用于读取远端 manifest/安装文档 |
+| jq | `1.7.1` | `>= 1.7` | JSON manifest/status 检查 |
+| ripgrep / `rg` | `15.1.0` | `>= 14` | 搜索配置和源码 |
+| uv / uvx | `0.10.9` | `>= 0.10` | 临时运行 pytest，不污染系统 Python |
+| pytest | `9.0.3` | `>= 8.4` | 仓库自测 |
+| npm | `11.12.1` | `>= 10` | 仅当需要安装/更新 Codex CLI 时使用 |
+
+**可选/场景依赖**
+
+| 软件/配置 | 建议 | 用途 |
+|---|---|---|
+| PowerShell / `pwsh` | `>= 7.4` | 只在 Windows wrapper 或跨平台 parity 测试时需要 |
+| DeepSeek/OpenAI-compatible API Key | `DEEPSEEK_API_KEY` 或 `OPENAI_API_KEY` 等 | 只在 `delegate_to_openai_compatible_report` 报告型 worker 中需要 |
+| 网络访问 | 能访问 GitHub、Claude Code、可选 OpenAI-compatible API | 安装、真实委派、报告型 worker |
+
+补充结论：插件运行期真正关键的是 `Codex CLI + Node.js + zsh + Python + Claude Code CLI`。Python runtime 基本用标准库，插件本身不需要额外 Python 包；`pytest` 只是安装验证用。
+
 ### Codex Plugin Marketplace
 
 本仓库对 Codex 来说是自索引的。把本仓库本身添加为 marketplace source：

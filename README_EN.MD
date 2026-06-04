@@ -1,6 +1,6 @@
 # Codex With CC Plus
 
-[中文](README_CN.MD) | English
+[中文](README.MD) | English
 
 Codex With CC Plus is an auditable multi-worker workflow for Codex. Codex stays the planner, dispatcher, reviewer, acceptance owner, and final judge. Expensive, long-running implementation work that changes code is delegated to Claude Code, while low-cost, high-frequency, read-only report and audit work can run through DeepSeek, MiniMax, MiMo, or another OpenAI-compatible API.
 
@@ -100,6 +100,42 @@ Optional controls such as `-MaxBudgetUsd`, `-MaxTurns`, and `-IncludePartialMess
 8. **Accept or Rework**: Codex main thread and human decide.
 
 ## Install
+
+### Software Versions
+
+The software actually used for installation and the recommended versions are:
+
+**Required At Runtime**
+
+| Software | Actual Local Version | Recommended Version | Purpose |
+|---|---:|---:|---|
+| Codex CLI | `0.137.0` | `>= 0.137.0` | `plugin marketplace/list/add/remove` |
+| Node.js | `v24.15.0` | `>= 20 LTS` | Runs plugin hooks; `hooks.json` directly calls `node --input-type=module` |
+| zsh | `5.9` | `>= 5.9` | macOS wrapper scripts |
+| Python | `3.14.5` | Runtime `>= 3.9`; testing recommended `>= 3.11` | delegate/runtime/ccviz/verify scripts |
+| Claude Code CLI | `2.1.141` | `>= 2.1.141` or latest | Real `delegate_to_claude` worker execution |
+
+**Used For Installation / Verification**
+
+| Software | Actual Local Version | Recommended Version | Purpose |
+|---|---:|---:|---|
+| Git | `2.48.1` | `>= 2.40` | Marketplace fetches the GitHub repository |
+| curl | `8.7.1` | `>= 8.0` | Used here to read remote manifests/install docs |
+| jq | `1.7.1` | `>= 1.7` | JSON manifest/status checks |
+| ripgrep / `rg` | `15.1.0` | `>= 14` | Search configuration and source |
+| uv / uvx | `0.10.9` | `>= 0.10` | Temporarily run pytest without mutating system Python |
+| pytest | `9.0.3` | `>= 8.4` | Repository self-tests |
+| npm | `11.12.1` | `>= 10` | Only needed to install/update Codex CLI |
+
+**Optional / Scenario-Dependent**
+
+| Software / Config | Recommendation | Purpose |
+|---|---|---|
+| PowerShell / `pwsh` | `>= 7.4` | Only needed for Windows wrappers or cross-platform parity tests |
+| DeepSeek/OpenAI-compatible API Key | `DEEPSEEK_API_KEY`, `OPENAI_API_KEY`, etc. | Only needed by `delegate_to_openai_compatible_report` report workers |
+| Network access | Can reach GitHub, Claude Code, and optional OpenAI-compatible APIs | Installation, real delegation, report workers |
+
+Bottom line: runtime mainly depends on `Codex CLI + Node.js + zsh + Python + Claude Code CLI`. The Python runtime mostly uses the standard library, so the plugin itself does not need extra Python packages; `pytest` is only for installation verification.
 
 ### Codex Plugin Marketplace
 
