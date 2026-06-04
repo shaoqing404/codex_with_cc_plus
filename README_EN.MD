@@ -61,6 +61,11 @@ The main development path, real long-running worker path, shell wrappers, and ru
 ## Mental Model
 
 ```text
+Dispatch planning
+-> DeepSeek V4-Pro Dispatch Planner
+-> spec / workflow / TaskFile draft
+-> local validation still decides
+
 Task file format check
 -> local validate_delegate_task.*
 -> zero-token deterministic hard gate
@@ -77,12 +82,17 @@ Report / audit task
 -> DeepSeek Flash or compatible OpenAI API
 -> structured report
 
+Run observation
+-> Codex child thread Run Supervisor
+-> ccwatch / ccsupervise
+-> supervisor_<RunId>.json/.md
+
 Final judgment
 -> Codex main thread + human
 -> verify artifacts, review diffs, accept or rework
 ```
 
-Long implementation tasks should be allowed to finish. Do not make Codex main thread sleep and babysit. Record `RunId`, `statusPath`, `rawStreamPath`, and `tracePath`, then reconnect through `ccviz show`, `ccviz audit`, or status JSON checkpoints.
+Long implementation tasks should be allowed to finish. Do not make Codex main thread sleep and babysit, and do not keep hand-writing `find/git status/ls` polling commands. Record `RunId`, `statusPath`, `rawStreamPath`, and `tracePath`, prefer a Run Supervisor with `ccwatch` / `ccsupervise` for a specific run, then reconnect at workflow level through `ccviz show` or `ccviz audit`.
 
 Do not let the main thread burn cycles idling.
 
@@ -98,6 +108,24 @@ Optional controls such as `-MaxBudgetUsd`, `-MaxTurns`, and `-IncludePartialMess
 6. **Artifact**: runner writes config/status/prompt/stream/trace/report/workflow artifacts.
 7. **Review**: reviewers verify spec and quality; final verifier checks aggregate evidence.
 8. **Accept or Rework**: Codex main thread and human decide.
+
+## Dispatch Planner / Run Supervisor
+
+Codex With CC Plus now splits startup planning and long-run observation into clearer roles:
+
+- **Dispatch Planner**: default `deepseek-v4-pro`. It turns user goals into specs, workflow plans, TaskFile drafts, and risk notes. It cannot execute shell commands, edit business files, or bypass `validate_delegate_task.*`.
+- **Report Worker**: default `deepseek-v4-flash`. It handles cheap preflight, report normalization, audit summaries, and lightweight validator explanations.
+- **Run Supervisor**: owned by a Codex child thread. It observes one delegated run's artifacts, runs deterministic verification, and writes `supervisor_<RunId>.json/.md` so the main thread receives structured feedback.
+- **Forensic Analyst**: default `deepseek-v4-pro`. It only runs after a deterministic verifier failure or explicit human request, explains failure and risk, and must write `mayOverrideVerifier=false`.
+
+Common observation commands:
+
+```bash
+./skills/codex-with-cc/macos_scripts/ccwatch.sh -RunId <run-id>
+./skills/codex-with-cc/macos_scripts/ccwatch.sh -WorkflowId <workflow-id> --json
+./skills/codex-with-cc/macos_scripts/ccsupervise.sh -RunId <run-id>
+./skills/codex-with-cc/macos_scripts/ccspec.sh list
+```
 
 ## Install
 

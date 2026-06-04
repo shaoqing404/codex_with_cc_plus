@@ -26,6 +26,61 @@
     "canRunShellTests": false,
     "requiresLocalValidationAfterAssist": true
   },
+  "orchestrationRoles": {
+    "dispatch-planner": {
+      "runnerType": "openai_compatible_report",
+      "defaultModel": "deepseek-v4-pro",
+      "mayOverrideValidator": false,
+      "mayOverrideVerifier": false,
+      "canEditBusinessFiles": false,
+      "canRunShellTests": false,
+      "purpose": "Turn user intent and tracked specs into dispatchable workflow plans and TaskFile drafts."
+    },
+    "run-supervisor": {
+      "runnerType": "codex_child_thread",
+      "defaultModel": "gpt-5.4-mini",
+      "mayOverrideValidator": false,
+      "mayOverrideVerifier": false,
+      "canEditBusinessFiles": false,
+      "canRunShellTests": true,
+      "purpose": "Own one delegated run lifecycle, observe that run's artifacts, run deterministic verification, and report concise status to the Codex main thread."
+    },
+    "report-worker": {
+      "runnerType": "openai_compatible_report",
+      "defaultModel": "deepseek-v4-flash",
+      "mayOverrideValidator": false,
+      "mayOverrideVerifier": false,
+      "canEditBusinessFiles": false,
+      "canRunShellTests": false,
+      "purpose": "Cheap report-only preflight, normalization, audit summaries, and routine workflow judgment."
+    },
+    "forensic-analyst": {
+      "runnerType": "openai_compatible_report",
+      "defaultModel": "deepseek-v4-pro",
+      "mayOverrideValidator": false,
+      "mayOverrideVerifier": false,
+      "canEditBusinessFiles": false,
+      "canRunShellTests": false,
+      "purpose": "Explain deterministic verifier failures, classify risk, and recommend next steps without changing verifier outcomes."
+    }
+  },
+  "workflowStateMachine": [
+    "INTAKE",
+    "SPEC_DRAFTED",
+    "TASKFILES_DRAFTED",
+    "TASKFILES_VALIDATED",
+    "DISPATCH_READY",
+    "RUN_SUPERVISED",
+    "REPORT_READY",
+    "DETERMINISTIC_VERIFIED",
+    "MAIN_ACCEPTED"
+  ],
+  "workflowFailureStates": [
+    "TASKFILE_INVALID",
+    "RUN_STALE",
+    "DETERMINISTIC_VERIFY_FAILED",
+    "HUMAN_OVERRIDE_REQUIRED"
+  ],
   "workerRoles": [
     "planner",
     "implementer",

@@ -61,6 +61,11 @@ Codex With CC Plus 给这个过程加上状态机。它不是魔法 prompt，而
 ## 心智模型
 
 ```text
+Dispatch planning
+-> DeepSeek V4-Pro Dispatch Planner
+-> spec / workflow / TaskFile draft
+-> local validation still decides
+
 Task file format check
 -> local validate_delegate_task.*
 -> zero-token deterministic hard gate
@@ -77,12 +82,17 @@ Report / audit task
 -> DeepSeek Flash or compatible OpenAI API
 -> structured report
 
+Run observation
+-> Codex child thread Run Supervisor
+-> ccwatch / ccsupervise
+-> supervisor_<RunId>.json/.md
+
 Final judgment
 -> Codex main thread + human
 -> verify artifacts, review diffs, accept or rework
 ```
 
-长时间运行的实现任务应该允许它正常跑完。不要让 Codex 主线程 sleep 并陪跑。记录 `RunId`、`statusPath`、`rawStreamPath` 和 `tracePath`，然后通过 `ccviz show`、`ccviz audit` 或 status JSON 检查点重新接管。
+长时间运行的实现任务应该允许它正常跑完。不要让 Codex 主线程 sleep 并陪跑，也不要反复手写 `find/git status/ls` 轮询。记录 `RunId`、`statusPath`、`rawStreamPath` 和 `tracePath`，优先让 Run Supervisor 用 `ccwatch` / `ccsupervise` 观察指定 run，再通过 `ccviz show`、`ccviz audit` 做 workflow 级检查点接管。
 
 main 不要干烧。
 
@@ -98,6 +108,24 @@ main 不要干烧。
 6. **产物**：runner 写入 config / status / prompt / stream / trace / report / workflow artifacts。
 7. **审查**：reviewer 验证规格和质量；最终 verifier 检查聚合证据。
 8. **接受或返工**：Codex 主线程和人共同决定。
+
+## Dispatch Planner / Run Supervisor
+
+Codex With CC Plus 现在把启动阶段和长跑观察阶段拆成更清晰的角色：
+
+- **Dispatch Planner**：默认 `deepseek-v4-pro`。负责把用户目标整理成 spec、workflow plan、TaskFile 草案和风险提示。它不能执行 shell，不能改业务文件，不能绕过 `validate_delegate_task.*`。
+- **Report Worker**：默认 `deepseek-v4-flash`。负责便宜的 preflight、报告归一化、审计摘要和轻量 validator 解释。
+- **Run Supervisor**：由 Codex child thread 承担。它观察一个被委派 run 的 artifacts，运行 deterministic verifier，并产出 `supervisor_<RunId>.json/.md`，让主线程收到结构化反馈。
+- **Forensic Analyst**：默认 `deepseek-v4-pro`。只在 deterministic verifier 失败或人工要求时触发，解释失败和风险，必须写 `mayOverrideVerifier=false`。
+
+常用观察命令：
+
+```bash
+./skills/codex-with-cc/macos_scripts/ccwatch.sh -RunId <run-id>
+./skills/codex-with-cc/macos_scripts/ccwatch.sh -WorkflowId <workflow-id> --json
+./skills/codex-with-cc/macos_scripts/ccsupervise.sh -RunId <run-id>
+./skills/codex-with-cc/macos_scripts/ccspec.sh list
+```
 
 ## 安装
 

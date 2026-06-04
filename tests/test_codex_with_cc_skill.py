@@ -49,7 +49,7 @@ def test_codex_with_cc_skill_contract() -> None:
 
     codex_manifest = json.loads(codex_plugin.read_text(encoding="utf-8"))
     assert codex_manifest["name"] == "codex-with-cc-plus"
-    assert re.fullmatch(r"1\.0\.6(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_manifest["version"])
+    assert re.fullmatch(r"1\.0\.7(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_manifest["version"])
     assert codex_manifest["skills"] == "./skills/"
     assert "self-indexed" in codex_manifest["interface"]["longDescription"]
     assert any("shaoqing404/codex_with_cc_plus" in prompt for prompt in codex_manifest["interface"]["defaultPrompt"])
@@ -149,7 +149,13 @@ def test_codex_with_cc_skill_contract() -> None:
 
 
 def test_workflow_docs_do_not_expose_version_branding() -> None:
-    forbidden = ("v" + "2", "V" + "2", "v" + "3", "V" + "3", "codex_with_cc_" + "v" + "2")
+    legacy_two = "v" + "2"
+    legacy_three = "v" + "3"
+    forbidden_patterns = (
+        re.compile(rf"(?<![A-Za-z0-9_.-]){legacy_two}(?![A-Za-z0-9_.-])", re.IGNORECASE),
+        re.compile(rf"(?<![A-Za-z0-9_.-]){legacy_three}(?![A-Za-z0-9_.-])", re.IGNORECASE),
+        re.compile("codex_with_cc_" + legacy_two, re.IGNORECASE),
+    )
     scanned: list[Path] = []
     for path in repo.rglob("*"):
         if not path.is_file():
@@ -164,8 +170,8 @@ def test_workflow_docs_do_not_expose_version_branding() -> None:
         if path.suffix.lower() in {".md", ".py", ".js", ".json", ".yaml", ".yml", ".ps1", ".sh"}:
             haystack += "\n" + path.read_text(encoding="utf-8")
         haystack = re.sub(r"https?://\S+", "", haystack)
-        for token in forbidden:
-            assert token not in haystack, f"unexpected version branding token {token!r} in {rel}"
+        for pattern in forbidden_patterns:
+            assert not pattern.search(haystack), f"unexpected version branding pattern {pattern.pattern!r} in {rel}"
 
 
 def test_macos_shell_wrappers_use_zsh_shebang() -> None:

@@ -108,6 +108,24 @@ def test_contract_json_is_single_source_for_runtime_constants() -> None:
     assert contract["taskFileAssist"]["defaultModel"] == "deepseek-v4-flash"
     assert contract["taskFileAssist"]["mayOverrideValidator"] is False
     assert contract["taskFileAssist"]["requiresLocalValidationAfterAssist"] is True
+    assert contract["orchestrationRoles"]["dispatch-planner"]["defaultModel"] == "deepseek-v4-pro"
+    assert contract["orchestrationRoles"]["dispatch-planner"]["mayOverrideValidator"] is False
+    assert contract["orchestrationRoles"]["run-supervisor"]["runnerType"] == "codex_child_thread"
+    assert contract["orchestrationRoles"]["run-supervisor"]["mayOverrideVerifier"] is False
+    assert contract["orchestrationRoles"]["report-worker"]["defaultModel"] == "deepseek-v4-flash"
+    assert contract["orchestrationRoles"]["forensic-analyst"]["defaultModel"] == "deepseek-v4-pro"
+    assert contract["orchestrationRoles"]["forensic-analyst"]["mayOverrideVerifier"] is False
+    assert contract["workflowStateMachine"] == [
+        "INTAKE",
+        "SPEC_DRAFTED",
+        "TASKFILES_DRAFTED",
+        "TASKFILES_VALIDATED",
+        "DISPATCH_READY",
+        "RUN_SUPERVISED",
+        "REPORT_READY",
+        "DETERMINISTIC_VERIFIED",
+        "MAIN_ACCEPTED",
+    ]
     assert "delegateEntrypointPatterns" in contract
     assert contract["delegateEntrypointPattern"] in contract["delegateEntrypointPatterns"]
     assert "-Task" in contract["legacy"]["forbiddenArgs"]

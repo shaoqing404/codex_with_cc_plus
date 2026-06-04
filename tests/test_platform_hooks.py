@@ -229,6 +229,18 @@ def test_pre_tool_use_denies_delegate_shell_without_child_marker() -> None:
     assert "-TaskFile" in reason
 
 
+def test_pre_tool_use_allows_read_only_delegate_script_inspection() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {"command": "sed -n '1,120p' skills/codex-with-cc/macos_scripts/delegate_to_claude.sh"},
+        }
+    )
+
+    assert output == {}
+
+
 def test_pre_tool_use_denies_openai_compatible_delegate_shell_without_child_marker() -> None:
     output = run_hook(
         {

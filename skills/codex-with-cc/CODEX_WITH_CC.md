@@ -66,8 +66,17 @@ Runner separation:
 - Task file format check: local `validate_delegate_task.*`; no model call; hard gate.
 - Implementation work: `delegate_to_claude.*` carried by a Codex child thread, then Claude Code CLI.
 - Report, audit, preflight, final-verifier, and normalization work: `delegate_to_openai_compatible_report.*` carried by a Codex child thread, then DeepSeek Flash or another OpenAI-compatible model.
+- Dispatch planning: `Dispatch Planner` uses DeepSeek V4-Pro to draft workflow plans, TaskFiles, and risk notes before dispatch. It is an authoring assistant only; it must not execute shell commands, edit business files, override the local validator, or dispatch implementation work.
+- Run observation: `Run Supervisor` is a Codex child-thread orchestration role. It supervises one delegated run, observes that run's artifacts, runs deterministic verification, and returns concise status to the main thread. It may observe the supervised run's artifacts, but it must not observe its own live artifacts or recursively create unassigned delegate runs.
+- Failure forensics: `Forensic Analyst` uses DeepSeek V4-Pro only after a deterministic verifier failure or explicit human request. It explains the failure, classifies risk, and recommends next action with `mayOverrideVerifier=false`.
 
 Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain validation failures or draft a corrected TaskFile, but only as an authoring assistant. It must not edit business files, must not run shell tests, must not dispatch implementation work, and its report must state `mayOverrideValidator=false`. The deterministic `validate_delegate_task.*` result remains the only hard gate for whether a TaskFile is dispatchable.
+
+DeepSeek model boundaries:
+
+- `deepseek-v4-flash`: cheap report worker for preflight, audit summaries, normalization, and low-risk validator explanation.
+- `deepseek-v4-pro`: Dispatch Planner and Forensic Analyst for high-uncertainty planning or verifier failure analysis.
+- Neither Flash nor V4-Pro can convert a failed deterministic validator or verifier into success.
 
 Pre-dispatch validation:
 
@@ -131,6 +140,15 @@ Worker roles:
 - `final-verifier`: workflow-level acceptance and residual risk summary.
 
 Workers are context consumers, not decision owners. They must not create nested delegate runs, broaden scope, or decide that unassigned follow-up work should be executed. When a worker lacks context, it reports `NEEDS_CONTEXT`.
+
+Orchestration roles:
+
+- `dispatch-planner`: DeepSeek V4-Pro planning assistant for dispatchable workflow/task design.
+- `run-supervisor`: Codex child-thread supervisor for one delegated run's artifact observation and deterministic verification.
+- `report-worker`: DeepSeek V4-Flash report-only helper for cheap preflight, audit, and normalization.
+- `forensic-analyst`: DeepSeek V4-Pro verifier-failure assistant with `mayOverrideVerifier=false`.
+
+Tracked speckit lives under `specs/codex-with-cc-plus/`. Runtime task files and generated artifacts stay under `.codex/codex_with_cc`.
 
 ## Session Modes
 - `PrimaryReuse`: default serial mode. Reuses the main Claude session for continuity.

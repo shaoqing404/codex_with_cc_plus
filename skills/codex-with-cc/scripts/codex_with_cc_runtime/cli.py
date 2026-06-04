@@ -10,6 +10,7 @@ from .delegate import run_delegate
 from .openai_compatible_report import run_openai_compatible_report_delegate
 from .real_chain import run_real_chain_validation
 from .selftests import run_test_runtime, run_test_session_pool
+from .supervision import run_ccspec, run_ccsupervise, run_ccwatch
 from .task_contract import run_validate_task
 from .ccviz_parser import list_workflows, get_workflow_details
 from .ccviz_renderer import render_list, render_show, render_audit
@@ -149,6 +150,35 @@ def build_parser() -> argparse.ArgumentParser:
     ccviz_audit.add_argument("workflow_id")
     ccviz_audit.add_argument("-ArtifactRoot", dest="artifact_root")
     ccviz_audit.set_defaults(func=run_ccviz_audit)
+
+    ccwatch = sub.add_parser("ccwatch", allow_abbrev=False)
+    watch_target = ccwatch.add_mutually_exclusive_group(required=True)
+    watch_target.add_argument("-RunId", dest="run_id")
+    watch_target.add_argument("-WorkflowId", dest="workflow_id")
+    ccwatch.add_argument("-ArtifactRoot", dest="artifact_root")
+    ccwatch.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+    ccwatch.add_argument("--json", dest="json", action="store_true")
+    ccwatch.add_argument("--no-verify", dest="no_verify", action="store_true")
+    ccwatch.set_defaults(func=run_ccwatch)
+
+    ccsupervise = sub.add_parser("ccsupervise", allow_abbrev=False)
+    ccsupervise.add_argument("-RunId", dest="run_id", required=True)
+    ccsupervise.add_argument("-ArtifactRoot", dest="artifact_root")
+    ccsupervise.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+    ccsupervise.add_argument("--json", dest="json", action="store_true")
+    ccsupervise.add_argument("--no-verify", dest="no_verify", action="store_true")
+    ccsupervise.set_defaults(func=run_ccsupervise)
+
+    ccspec = sub.add_parser("ccspec", allow_abbrev=False)
+    ccspec.add_argument("-SpecRoot", dest="spec_root")
+    ccspec_sub = ccspec.add_subparsers(dest="ccspec_command", required=True)
+    ccspec_sub.add_parser("path", allow_abbrev=False).set_defaults(func=run_ccspec)
+    ccspec_sub.add_parser("list", allow_abbrev=False).set_defaults(func=run_ccspec)
+    ccspec_new = ccspec_sub.add_parser("new", allow_abbrev=False)
+    ccspec_new.add_argument("slug")
+    ccspec_new.add_argument("-Title", dest="title")
+    ccspec_new.add_argument("--force", dest="force", action="store_true")
+    ccspec_new.set_defaults(func=run_ccspec)
 
     return parser
 

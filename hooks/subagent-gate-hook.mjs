@@ -312,6 +312,17 @@ function hasForbiddenEffort(serialized) {
   return /(?:^|[\s"'])--effort\b/i.test(serialized);
 }
 
+function isReadOnlyInspectionCommand(serialized) {
+  const text = String(serialized || "");
+  const commandMatch = text.match(/"command"\s*:\s*"([^"]*)"/);
+  const command = (commandMatch ? commandMatch[1] : text).replace(/\\n/g, "\n").trim();
+  if (!/^(?:sed|cat|rg|grep|head|tail|nl|wc|ls|find)\b/i.test(command)) {
+    return false;
+  }
+  return !/(?:^|[\s;&|])(?:env|sh|bash|zsh|pwsh|powershell|python|python3|node)\b/i.test(command)
+    && !/(?:^|[;&|]\s*)(?:\.\/|\.\\|[\w:/\\.-]*[/\\])?delegate_to_[\w.-]+(?:\.sh|\.ps1|\.cmd|\.bat)?(?:\s|$)/i.test(command);
+}
+
 function hasDirectClaudeCommand(serialized) {
   return /(?:^|[\n\r;&|`"'])\s*(?:\.\/|\.\\|[\w:/\\.-]*[/\\])?claude(?:\.cmd|\.exe)?(?:\s+(?:-|--|<|>|2>|&>|;|\||&&|\|\|)|\s*$|$)/i.test(serialized);
 }
@@ -404,7 +415,7 @@ function handlePreToolUse(input) {
       problems.push("direct Claude CLI execution is forbidden");
     }
 
-    if (hasDelegateEntrypoint(serialized)) {
+    if (hasDelegateEntrypoint(serialized) && !isReadOnlyInspectionCommand(serialized)) {
       if (!hasChildMarker(serialized)) {
         problems.push("CODEX_CLAUDE_CHILD_THREAD=1 is required");
       }

@@ -67,6 +67,21 @@ Report / audit worker
 -> delegate_to_openai_compatible_report.*
 -> DeepSeek Flash or compatible OpenAI API
 -> read-only judgment; no shell tests
+
+Dispatch Planner
+-> delegate_to_openai_compatible_report.*
+-> DeepSeek V4-Pro
+-> workflow/task/spec planning; no shell tests; no business edits
+
+Run Supervisor
+-> Codex child thread
+-> ccwatch / ccsupervise over one delegated run
+-> artifact observation + deterministic verifier feedback
+
+Forensic Analyst
+-> delegate_to_openai_compatible_report.*
+-> DeepSeek V4-Pro
+-> verifier failure explanation; mayOverrideVerifier=false
 ```
 
 `validate_delegate_task.*` is not a DeepSeek verifier. It only checks TaskFile sections, role metadata, reviewer metadata, declared `-Tests`, placeholders, and report headings.
@@ -198,12 +213,14 @@ Implementation workers may run for a long time. That is expected.
 
 Do not make Codex main thread use `sleep` to babysit a live implementation run. Instead:
 
-Do not keep the main agent busy with blind `sleep` loops.
+Do not keep the main agent busy with blind `sleep` loops or ad hoc `find/git status/ls` polling.
 
 1. Record `RunId`, `statusPath`, `rawStreamPath`, `tracePath`, and `outputPath`.
-2. Let Claude Code finish and produce the structured report.
-3. Use `ccviz show <workflow-id>`, `ccviz audit <workflow-id>`, or status JSON checkpoints to reconnect.
-4. If a run is truly stale, inspect PID/status/stream before deciding whether to rework or recover.
+2. Prefer a Codex child-thread `Run Supervisor` for observation.
+3. Use `ccwatch -RunId <run-id>` for artifact-grounded status.
+4. Use `ccsupervise -RunId <run-id>` to write `supervisor_<RunId>.json/.md`.
+5. Let Claude Code finish and produce the structured report unless the supervisor reports a real stale/failure condition.
+6. Use `ccviz show <workflow-id>` or `ccviz audit <workflow-id>` for workflow-level review.
 
 Optional explicit controls:
 

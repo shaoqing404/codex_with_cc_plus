@@ -85,6 +85,43 @@ def make_python_jsonl_fake_claude_bin(temp_root: Path, records: list[str], name:
     return bin_dir
 
 
+def make_stateful_python_jsonl_fake_claude_bin(
+    temp_root: Path,
+    first_records: list[str],
+    later_records: list[str],
+    state_path: Path,
+    name: str = "fake-claude-stateful-bin",
+) -> Path:
+    bin_dir = temp_root / name
+    bin_dir.mkdir(parents=True, exist_ok=True)
+    script = bin_dir / "fake_claude_stateful_jsonl.py"
+    write_text(
+        script,
+        (
+            "import pathlib, sys\n"
+            "sys.stdin.read()\n"
+            f"state = pathlib.Path({str(state_path)!r})\n"
+            f"first_records = {first_records!r}\n"
+            f"later_records = {later_records!r}\n"
+            "if state.exists():\n"
+            "    records = later_records\n"
+            "else:\n"
+            "    state.write_text('seen', encoding='utf-8')\n"
+            "    records = first_records\n"
+            "for record in records:\n"
+            "    print(record)\n"
+        ),
+    )
+    if os.name == "nt":
+        fake = bin_dir / "claude.cmd"
+        write_text(fake, f'@echo off\n"{sys.executable}" "{script}"\n')
+    else:
+        fake = bin_dir / "claude"
+        write_text(fake, f"#!/usr/bin/env sh\nexec {sys.executable!r} {str(script)!r}\n")
+        fake.chmod(fake.stat().st_mode | stat.S_IXUSR)
+    return bin_dir
+
+
 def write_task_file(root: Path, task_id: str, text: str) -> Path:
     task_file = root / f"{task_id}.md"
     write_text(
@@ -399,35 +436,12 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             separators=(",", ":"),
         )
         result_record = json.dumps({"type": "result", "subtype": "success"}, separators=(",", ":"))
-        retry_state = temp_root / "unstructured_retry_seen.txt"
-        if os.name == "nt":
-            retry_fake_body = (
-                "@echo off\n"
-                "more > nul\n"
-                f'if exist "{retry_state}" goto structured\n'
-                f'echo seen>"{retry_state}"\n'
-                f"echo {unstructured_record}\n"
-                f"echo {result_record}\n"
-                "exit /b 0\n"
-                ":structured\n"
-                f"echo {structured_record}\n"
-                f"echo {result_record}\n"
-                "exit /b 0\n"
-            )
-        else:
-            state_text = str(retry_state).replace("'", "'\"'\"'")
-            retry_fake_body = (
-                "#!/bin/sh\n"
-                f"if [ -f '{state_text}' ]; then\n"
-                f"  printf '%s\\n' '{structured_record}'\n"
-                "else\n"
-                f"  touch '{state_text}'\n"
-                f"  printf '%s\\n' '{unstructured_record}'\n"
-                "fi\n"
-                f"printf '%s\\n' '{result_record}'\n"
-                "exit 0\n"
-            )
-        retry_fake_bin = make_fake_claude_bin(temp_root, retry_fake_body)
+        retry_fake_bin = make_stateful_python_jsonl_fake_claude_bin(
+            temp_root,
+            [unstructured_record, result_record],
+            [structured_record, result_record],
+            temp_root / "unstructured_retry_seen.txt",
+        )
         retry_root = temp_root / "unstructured-retry"
         retry_env = {CHILD_MARKER_NAME: "1", "PATH": f"{retry_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
         retry_run = run_delegate_subprocess(

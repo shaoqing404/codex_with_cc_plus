@@ -20,7 +20,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
 
     codex_plugin = json.loads(codex_plugin_path.read_text(encoding="utf-8"))
     assert codex_plugin["name"] == "codex-with-cc-plus"
-    assert codex_plugin["version"] == "1.0.6"
+    assert codex_plugin["version"] == "1.0.7"
     assert codex_plugin["repository"] == "https://github.com/shaoqing404/codex_with_cc_plus"
     assert codex_plugin["skills"] == "./skills/"
     assert codex_plugin["hooks"] == "./hooks/hooks.json"
@@ -30,6 +30,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
     assert codex_interface["displayName"] == "Codex With CC Plus"
     assert "Codex" in codex_interface["shortDescription"]
     assert "Claude Code" in codex_interface["shortDescription"]
+    assert "Run Supervisor" in codex_interface["longDescription"]
     assert "self-indexed" in codex_interface["longDescription"]
     assert "marketplace" in codex_interface["longDescription"].lower()
     assert "Read" in codex_interface["capabilities"]
