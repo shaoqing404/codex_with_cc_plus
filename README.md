@@ -112,7 +112,7 @@ codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master
 然后从这个 marketplace 安装插件：
 
 ```bash
-codex plugin add codex-with-cc@codex-with-cc-plus
+codex plugin add codex-with-cc-plus@codex-with-cc-plus
 ```
 
 marketplace manifest 位于：

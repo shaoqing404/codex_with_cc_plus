@@ -20,7 +20,7 @@ SCRIPTS = WORKFLOW / "scripts"
 def install_simulated_plugin(temp_root: Path) -> tuple[Path, Path]:
     codex_home = temp_root / ".codex"
     project_root = temp_root / "target-project"
-    plugin_root = codex_home / "plugins" / "cache" / "codex-with-cc-plus" / "codex-with-cc" / "1.0.0" / "skills" / "codex-with-cc"
+    plugin_root = codex_home / "plugins" / "cache" / "codex-with-cc-plus" / "codex-with-cc-plus" / "1.0.0" / "skills" / "codex-with-cc"
     project_root.mkdir(parents=True, exist_ok=True)
     shutil.copytree(SCRIPTS, plugin_root / "scripts")
     shutil.copy2(WORKFLOW / "CODEX_WITH_CC.md", plugin_root / "CODEX_WITH_CC.md")
@@ -42,7 +42,7 @@ def test_marketplace_install_uses_project_cwd_for_default_paths() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_marketplace_paths_") as tmp:
         temp_root = Path(tmp)
         codex_home, project_root = install_simulated_plugin(temp_root)
-        plugin_scripts = codex_home / "plugins" / "cache" / "codex-with-cc-plus" / "codex-with-cc" / "1.0.0" / "skills" / "codex-with-cc" / "scripts"
+        plugin_scripts = codex_home / "plugins" / "cache" / "codex-with-cc-plus" / "codex-with-cc-plus" / "1.0.0" / "skills" / "codex-with-cc" / "scripts"
         env = {
             **os.environ,
             "CODEX_HOME": str(codex_home),

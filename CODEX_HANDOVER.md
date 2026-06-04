@@ -27,7 +27,7 @@
 
 ```bash
 codex plugin marketplace add shaoqing404/codex_with_cc_plus --ref master
-codex plugin add codex-with-cc@codex-with-cc-plus
+codex plugin add codex-with-cc-plus@codex-with-cc-plus
 ```
 
 仓库内的 `.agents/plugins/marketplace.json` 是 Codex marketplace 索引；`.codex-plugin/plugin.json` 是插件本体 manifest。
