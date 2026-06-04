@@ -6,9 +6,10 @@ Primary maintainer:
 
 Shared maintenance contact requested by project owner:
 
-- cleven_lee@126.com
+- GitHub: `clevenlee`
+- Email: `cleven_lee@126.com`
 
-GitHub repository permissions still require an exact GitHub username. The public
-username `leecss` could not be resolved through GitHub API at the time this file
-was written, so the email is recorded here until the exact account login is
-confirmed and invited with `maintain` permission.
+GitHub collaborator invitation was sent to `clevenlee` with write permission.
+For this personal repository, GitHub rejected the `maintain` permission value;
+use `admin` only if this maintainer should also manage repository settings and
+collaborators.
