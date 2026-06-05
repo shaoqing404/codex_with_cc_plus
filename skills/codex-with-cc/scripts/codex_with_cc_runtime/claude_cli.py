@@ -26,6 +26,9 @@ def update_stream_capture(record: dict[str, Any], state: dict[str, Any]) -> list
     state.setdefault("finalText", "")
     state.setdefault("sawAssistantText", False)
     state.setdefault("sawResultSuccess", False)
+    state.setdefault("sawResultError", False)
+    state.setdefault("resultErrorText", "")
+    state.setdefault("resultApiErrorStatus", None)
     state.setdefault("capturedFinalResultHeading", False)
 
     trace_lines: list[str] = []
@@ -59,6 +62,11 @@ def update_stream_capture(record: dict[str, Any], state: dict[str, Any]) -> list
             line += f" cost={record['cost_usd']}"
         if subtype == "success":
             state["sawResultSuccess"] = True
+        if record.get("is_error"):
+            state["sawResultError"] = True
+            if record.get("result") is not None:
+                state["resultErrorText"] = str(record.get("result") or "").strip()
+            state["resultApiErrorStatus"] = record.get("api_error_status")
         trace_lines.append(line)
     elif record_type == "stream_event":
         event = record.get("event") if isinstance(record.get("event"), dict) else {}

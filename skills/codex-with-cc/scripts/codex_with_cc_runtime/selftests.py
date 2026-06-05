@@ -400,6 +400,48 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_equal(newline_status["status"], "completed", "newline-jsonl-status-completed")
         assert_true(newline_assistant in newline_stream.splitlines(), "newline-jsonl-remains-single-line-json")
 
+        api_error_record = json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": True,
+                "api_error_status": None,
+                "result": "API Error: Unable to connect to API (FailedToOpenSocket)",
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+            separators=(",", ":"),
+        )
+        api_error_fake_bin = make_python_jsonl_fake_claude_bin(
+            temp_root,
+            [api_error_record],
+            "fake-claude-api-error-jsonl-bin",
+        )
+        api_error_root = temp_root / "api-error-jsonl"
+        api_error_env = {CHILD_MARKER_NAME: "1", "PATH": f"{api_error_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        api_error_run = run_delegate_subprocess(
+            [
+                *delegate_task_args(temp_root, "api-error-report", "API error report probe", "implementer"),
+                "-ArtifactRoot",
+                str(api_error_root),
+                "-SessionKey",
+                "api-error-jsonl",
+                "-MaxRetryCount",
+                "0",
+            ],
+            env=api_error_env,
+        )
+        assert_true(api_error_run.returncode != 0, "api-error-run-fails")
+        api_error_status = load_json(next(api_error_root.glob("status_*.json")))
+        api_error_config = load_json(next(api_error_root.glob("config_*.json")))
+        api_error_output = read_text(next(api_error_root.glob("claude_*.md")))
+        api_error_run_id = str(api_error_status["runId"])
+        assert_equal(api_error_status["status"], "failed", "api-error-status-failed")
+        assert_equal(api_error_status["failureDisposition"], "NEED_HUMAN_INTERVENTION", "api-error-human-intervention")
+        assert_true("CLAUDE_API_ERROR" in api_error_status["failureSummary"], "api-error-failure-summary")
+        assert_equal(api_error_config["failureSummary"], api_error_status["failureSummary"], "api-error-config-status-summary")
+        assert_true(text_has_required_report_headings(api_error_output), "api-error-output-has-report-headings")
+        verify_artifacts(api_error_run_id, str(api_error_root))
+
         retry_report = "\n".join(
             (
                 "Status",

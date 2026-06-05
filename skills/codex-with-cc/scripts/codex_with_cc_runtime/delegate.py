@@ -58,6 +58,37 @@ Risks Or Follow-ups
 """
 
 
+def claude_api_error_report(message: str, role: str) -> str:
+    clean_message = message.strip() or "Claude Code reported an API error without a message."
+    return f"""Status
+FAIL
+
+Role
+{role}
+
+Summary
+Claude Code reached its API layer but could not complete the delegated task.
+
+Changed Files
+None
+
+Verification
+- not run; Claude Code API connection failed before trustworthy worker execution
+
+Findings
+- Delegate runner startup, TaskFile metadata, and artifact writing reached Claude Code execution.
+- Claude Code returned an API error instead of a structured worker report.
+- API error: {clean_message}
+
+Final Result
+FAIL
+
+Risks Or Follow-ups
+- Check Claude Code login, network, proxy, account quota, and selected backend/model before retrying.
+- Do not accept this delegated task as implemented; no trustworthy worker verification was produced.
+"""
+
+
 
 def dry_run_report(run_id: str, prompt_path: Path, role: str) -> str:
     return f"""Status
@@ -500,6 +531,9 @@ def run_delegate(ns: argparse.Namespace) -> int:
                     "finalText": "",
                     "sawAssistantText": False,
                     "sawResultSuccess": False,
+                    "sawResultError": False,
+                    "resultErrorText": "",
+                    "resultApiErrorStatus": None,
                     "capturedFinalResultHeading": False,
                 }
                 attempt_raw_lines: list[str] = []
@@ -587,6 +621,18 @@ def run_delegate(ns: argparse.Namespace) -> int:
                 final_text = str(capture_state.get("finalText") or "")
                 if not final_text.strip() and capture_state["assistantTexts"]:
                     final_text = str(capture_state["assistantTexts"][-1]).strip()
+                if capture_state.get("sawResultError"):
+                    exit_code = 1
+                    error_text = str(capture_state.get("resultErrorText") or final_text or "Claude Code API error.").strip()
+                    final_text = claude_api_error_report(error_text, role)
+                    failure_disposition = "NEED_HUMAN_INTERVENTION"
+                    failure_summary_text = f"CLAUDE_API_ERROR: {error_text}"
+                    status["failureDisposition"] = failure_disposition
+                    status["failureSummary"] = failure_summary_text
+                    status["apiErrorStatus"] = capture_state.get("resultApiErrorStatus")
+                    config["failureDisposition"] = failure_disposition
+                    config["failureSummary"] = failure_summary_text
+                    config["apiErrorStatus"] = capture_state.get("resultApiErrorStatus")
                 output_file_has_report = path_has_required_report_headings(output_path)
                 captured_report = bool(capture_state["capturedFinalResultHeading"]) or output_file_has_report
                 decision = retry_decision(
@@ -740,11 +786,11 @@ Risks Or Follow-ups
         write_json(status_path, status)
         if exit_code != 0:
             if failure_disposition == "NEED_HUMAN_INTERVENTION":
-                raise DelegateError(f"Claude delegate retry ceiling reached: {failure_summary_text}")
+                raise DelegateError(f"Claude delegate requires human intervention: {failure_summary_text}")
             raise DelegateError(f"Claude Code exited with code {exit_code}")
         if status["status"] != "completed":
             if failure_disposition == "NEED_HUMAN_INTERVENTION":
-                raise DelegateError(f"Claude delegate retry ceiling reached: {failure_summary_text}")
+                raise DelegateError(f"Claude delegate requires human intervention: {failure_summary_text}")
             raise DelegateError(f"Claude Code finished without the required structured delegate report headings. Output: {output_path}")
         return 0
     except Exception as exc:

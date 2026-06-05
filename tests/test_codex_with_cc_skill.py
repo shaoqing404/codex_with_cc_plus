@@ -49,7 +49,7 @@ def test_codex_with_cc_skill_contract() -> None:
 
     codex_manifest = json.loads(codex_plugin.read_text(encoding="utf-8"))
     assert codex_manifest["name"] == "codex-with-cc-plus"
-    assert re.fullmatch(r"1\.0\.7(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_manifest["version"])
+    assert re.fullmatch(r"1\.0\.8(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_manifest["version"])
     assert codex_manifest["skills"] == "./skills/"
     assert "self-indexed" in codex_manifest["interface"]["longDescription"]
     assert any("shaoqing404/codex_with_cc_plus" in prompt for prompt in codex_manifest["interface"]["defaultPrompt"])
