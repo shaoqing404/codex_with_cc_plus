@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import re
 
 
 def test_plugin_manifest_and_docs_contract() -> None:
@@ -20,7 +21,7 @@ def test_plugin_manifest_and_docs_contract() -> None:
 
     codex_plugin = json.loads(codex_plugin_path.read_text(encoding="utf-8"))
     assert codex_plugin["name"] == "codex-with-cc-plus"
-    assert codex_plugin["version"] == "1.0.8"
+    assert re.fullmatch(r"1\.0\.8(?:\+codex\.[A-Za-z0-9_.-]+)?", codex_plugin["version"])
     assert codex_plugin["repository"] == "https://github.com/shaoqing404/codex_with_cc_plus"
     assert codex_plugin["skills"] == "./skills/"
     assert codex_plugin["hooks"] == "./hooks/hooks.json"

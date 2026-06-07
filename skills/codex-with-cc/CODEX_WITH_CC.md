@@ -202,6 +202,13 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
+Use `ccclean.* list|plan|apply` to inspect and reversibly clean old delegate
+artifacts. `ccclean plan` is non-destructive and shows matched projects, workflow/run
+ids, age, result, confidence, and protection reasons. `ccclean apply` requires
+`-ConfirmDelete` and moves files to a cleanup trash root instead of permanently
+deleting them. Failure, interrupted, running, recent, and orphan artifacts are
+protected by default.
+
 `RUNNING_DEAD_PROCESS` means a status artifact still says `running` but the recorded worker PID is no longer alive. This is an interrupted/stale run, not partial success. Do not accept it; rerun the task or trigger failure forensics.
 
 Structured execution failures can have valid artifacts while business acceptance is

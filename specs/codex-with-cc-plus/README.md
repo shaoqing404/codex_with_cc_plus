@@ -46,6 +46,8 @@ Failure branches:
 - `ccdoctor`: run deterministic local pre-dispatch health checks.
 - `ccwatch -RunId <id>` or `ccwatch -WorkflowId <id>`: read artifact-grounded status.
 - `ccsupervise -RunId <id>`: write `supervisor_<RunId>.json/.md` after observation.
+- `ccclean list|plan|apply`: inspect and reversibly clean old workflow artifact
+  groups with explicit protection reasons.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

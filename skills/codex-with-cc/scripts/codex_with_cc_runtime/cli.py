@@ -6,6 +6,7 @@ from typing import Callable
 
 from .artifacts import run_verify_artifacts, run_verify_chain, run_verify_workflow
 from .common import DelegateError, WORKER_ROLES
+from .cleanup import run_ccclean
 from .delegate import run_delegate
 from .doctor import run_doctor
 from .openai_compatible_report import run_openai_compatible_report_delegate
@@ -190,6 +191,34 @@ def build_parser() -> argparse.ArgumentParser:
     ccspec_new.add_argument("-Title", dest="title")
     ccspec_new.add_argument("--force", dest="force", action="store_true")
     ccspec_new.set_defaults(func=run_ccspec)
+
+    ccclean = sub.add_parser("ccclean", allow_abbrev=False)
+    ccclean_sub = ccclean.add_subparsers(dest="ccclean_command", required=True)
+    for command_name in ("list", "plan", "apply"):
+        command = ccclean_sub.add_parser(command_name, allow_abbrev=False)
+        command.add_argument("-ArtifactRoot", dest="artifact_root", action="append", default=[])
+        command.add_argument("-ProjectRoot", dest="project_root", action="append", default=[])
+        command.add_argument("-AllProjects", dest="all_projects", action="store_true")
+        command.add_argument("-ProjectMatch", dest="project_match", action="append", default=[])
+        command.add_argument("-WorkflowId", dest="workflow_id", action="append", default=[])
+        command.add_argument("-RunId", dest="run_id", action="append", default=[])
+        command.add_argument("-State", dest="state", action="append", default=[])
+        command.add_argument("-Result", dest="result", action="append", default=[])
+        command.add_argument("-Role", dest="role", action="append", default=[])
+        command.add_argument("-RunnerType", dest="runner_type", action="append", default=[])
+        command.add_argument("-OlderThanDays", dest="older_than_days", type=float)
+        command.add_argument("-OlderThanHours", dest="older_than_hours", type=float)
+        command.add_argument("-Before", dest="before")
+        command.add_argument("-IgnoreAge", dest="ignore_age", action="store_true")
+        command.add_argument("-IncludeFailures", dest="include_failures", action="store_true")
+        command.add_argument("-IncludeRunning", dest="include_running", action="store_true")
+        command.add_argument("-IncludeOrphans", dest="include_orphans", action="store_true")
+        command.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+        command.add_argument("-TrashRoot", dest="trash_root")
+        command.add_argument("-Limit", dest="limit", type=int)
+        command.add_argument("-ConfirmDelete", dest="confirm_delete", action="store_true")
+        command.add_argument("--json", dest="json", action="store_true")
+        command.set_defaults(func=run_ccclean)
 
     return parser
 
