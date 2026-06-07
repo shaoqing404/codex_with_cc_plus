@@ -440,6 +440,13 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_equal(api_error_status["failureDisposition"], "NEED_HUMAN_INTERVENTION", "api-error-human-intervention")
         assert_true("CLAUDE_API_ERROR" in api_error_status["failureSummary"], "api-error-failure-summary")
         assert_equal(api_error_config["failureSummary"], api_error_status["failureSummary"], "api-error-config-status-summary")
+        assert_equal(api_error_status["artifactContract"], "structured_failure_report", "api-error-artifact-contract")
+        assert_equal(api_error_status["workerOutcome"], "FAIL", "api-error-worker-outcome")
+        assert_equal(api_error_status["businessAcceptance"], "blocked", "api-error-business-acceptance")
+        assert_equal(api_error_status["failureLayer"], "claude_api_connection", "api-error-failure-layer")
+        assert_equal(api_error_status["safeToRetrySameTaskFile"], True, "api-error-safe-retry")
+        assert_equal(api_error_status["businessFilesChanged"], False, "api-error-business-files-unchanged")
+        assert_equal(api_error_status["mayOverrideImplementation"], False, "api-error-no-override-implementation")
         assert_true(text_has_required_report_headings(api_error_output), "api-error-output-has-report-headings")
         verify_artifacts(api_error_run_id, str(api_error_root))
 
@@ -529,7 +536,21 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_equal(stale_status["lastRetryReason"], "stale_claude_session", "stale-api-retry-last-reason")
         assert_equal(stale_status["attempts"][0]["retryReason"], "stale_claude_session", "stale-api-retry-attempt-reason")
         assert_true(not boolish(stale_status["attempts"][1]["resume"]), "stale-api-retry-fresh-attempt")
-        for key_name in ("failureDisposition", "failureSummary", "apiErrorStatus", "finalRetryReason"):
+        for key_name in (
+            "failureDisposition",
+            "failureSummary",
+            "apiErrorStatus",
+            "finalRetryReason",
+            "artifactContract",
+            "workerOutcome",
+            "businessAcceptance",
+            "failureLayer",
+            "retryable",
+            "humanActionRequired",
+            "safeToRetrySameTaskFile",
+            "businessFilesChanged",
+            "mayOverrideImplementation",
+        ):
             assert_true(key_name not in stale_status, f"stale-api-retry-status-clears-{key_name}")
             assert_true(key_name not in stale_config, f"stale-api-retry-config-clears-{key_name}")
         assert_true(text_has_required_report_headings(stale_output), "stale-api-retry-output-structured")

@@ -23,6 +23,7 @@ Dispatch discipline:
 - Dispatch the immediate blocking task locally only when no child-thread delegation is needed; otherwise create the Codex child thread and keep the main thread focused on review.
 - Put all worker instructions in a TaskFile with `Goal`, `Allowed Scope`, `Forbidden Actions`, `Acceptance Criteria`, `Verification`, and `Report Requirements`; the runtime rejects old one-line prompts.
 - Include the exact verification commands in the task file and pass them with `-Tests` when possible.
+- Run `ccdoctor` before implementation dispatch when Claude Code/socket/login/proxy health is uncertain.
 - The worker's final `Verification` report must include every command passed with `-Tests` and the observed outcome.
 - Dispatch implementer, spec reviewer, and quality reviewer as separate task ids so the workflow artifact can prove acceptance.
 - Dispatch a final-verifier task for any workflow with implementer tasks.

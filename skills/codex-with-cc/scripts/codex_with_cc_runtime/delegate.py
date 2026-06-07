@@ -26,13 +26,44 @@ from .workflow import normalize_role, safe_task_id, update_workflow_record, work
 
 
 RUNNER_TYPE = "claude_code"
-TRANSIENT_FAILURE_KEYS = ("failureDisposition", "failureSummary", "apiErrorStatus", "finalRetryReason")
+TRANSIENT_FAILURE_KEYS = (
+    "failureDisposition",
+    "failureSummary",
+    "apiErrorStatus",
+    "finalRetryReason",
+    "artifactContract",
+    "workerOutcome",
+    "businessAcceptance",
+    "failureLayer",
+    "retryable",
+    "humanActionRequired",
+    "safeToRetrySameTaskFile",
+    "businessFilesChanged",
+    "mayOverrideImplementation",
+)
 
 
 def clear_transient_failure_fields(*objects: dict[str, Any]) -> None:
     for obj in objects:
         for key in TRANSIENT_FAILURE_KEYS:
             obj.pop(key, None)
+
+
+def claude_api_failure_metadata(error_text: str) -> dict[str, Any]:
+    normalized = error_text.lower()
+    connection_markers = ("failedtoopensocket", "connectionrefused", "connection refused", "socket", "unable to connect")
+    failure_layer = "claude_api_connection" if any(marker in normalized for marker in connection_markers) else "claude_api"
+    return {
+        "artifactContract": "structured_failure_report",
+        "workerOutcome": "FAIL",
+        "businessAcceptance": "blocked",
+        "failureLayer": failure_layer,
+        "retryable": "maybe",
+        "humanActionRequired": True,
+        "safeToRetrySameTaskFile": True,
+        "businessFilesChanged": False,
+        "mayOverrideImplementation": False,
+    }
 
 
 def startup_failure_report(message: str, role: str = "reviewer") -> str:
@@ -638,12 +669,15 @@ def run_delegate(ns: argparse.Namespace) -> int:
                     final_text = claude_api_error_report(error_text, role)
                     failure_disposition = "NEED_HUMAN_INTERVENTION"
                     failure_summary_text = f"CLAUDE_API_ERROR: {error_text}"
+                    failure_metadata = claude_api_failure_metadata(error_text)
                     status["failureDisposition"] = failure_disposition
                     status["failureSummary"] = failure_summary_text
                     status["apiErrorStatus"] = capture_state.get("resultApiErrorStatus")
+                    status.update(failure_metadata)
                     config["failureDisposition"] = failure_disposition
                     config["failureSummary"] = failure_summary_text
                     config["apiErrorStatus"] = capture_state.get("resultApiErrorStatus")
+                    config.update(failure_metadata)
                 output_file_has_report = path_has_required_report_headings(output_path)
                 captured_report = bool(capture_state["capturedFinalResultHeading"]) or output_file_has_report
                 decision = retry_decision(

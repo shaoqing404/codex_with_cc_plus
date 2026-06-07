@@ -264,7 +264,7 @@ function hasTaskFile(serialized) {
 }
 
 function hasLegacyInlineTask(serialized) {
-  return /(?:^|[\s"'])-(?:Task)\b/i.test(serialized);
+  return hasNonExplanatoryFlag(serialized, /(?:^|[\s"'])-(?:Task)\b/ig);
 }
 
 function hasWorkflowId(serialized) {
@@ -297,7 +297,22 @@ function hasReviewKind(serialized) {
 }
 
 function hasLegacyMode(serialized) {
-  return /(?:^|[\s"'])(?:-Mode|--mode)\b/i.test(serialized);
+  return hasNonExplanatoryFlag(serialized, /(?:^|[\s"'])(?:-Mode|--mode)\b/ig);
+}
+
+function hasNonExplanatoryFlag(serialized, pattern) {
+  const text = String(serialized || "");
+  for (const match of text.matchAll(pattern)) {
+    const index = typeof match.index === "number" ? match.index : 0;
+    const before = text.slice(Math.max(0, index - 90), index).toLowerCase();
+    const after = text.slice(index, Math.min(text.length, index + 90)).toLowerCase();
+    const context = `${before} ${after}`;
+    if (/(?:do not|don't|dont|never|avoid|forbidden|forbid|legacy|not use|must not|禁止|不要|别用|禁用|旧参数|旧式)/i.test(context)) {
+      continue;
+    }
+    return true;
+  }
+  return false;
 }
 
 function hasScope(serialized) {

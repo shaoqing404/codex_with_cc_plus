@@ -14,6 +14,7 @@ SCRIPTS = REPO / "skills" / "codex-with-cc" / "scripts"
 CCWATCH = SCRIPTS / "ccwatch.py"
 CCSUPERVISE = SCRIPTS / "ccsupervise.py"
 CCSPEC = SCRIPTS / "ccspec.py"
+CCDOCTOR = SCRIPTS / "ccdoctor.py"
 
 
 def run_script(script: Path, *args: str, cwd: Path = REPO) -> subprocess.CompletedProcess[str]:
@@ -160,3 +161,24 @@ def test_ccspec_can_create_and_list_tracked_specs() -> None:
         listed = run_script(CCSPEC, "-SpecRoot", str(root), "list")
         assert listed.returncode == 0, listed.stdout + listed.stderr
         assert "sample-flow.md" in listed.stdout
+
+
+def test_ccdoctor_reports_deterministic_preflight_state() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_doctor_") as tmp:
+        root = Path(tmp) / "artifacts"
+        result = run_script(CCDOCTOR, "-ArtifactRoot", str(root), "--json")
+
+        assert result.returncode in (0, 1), result.stdout + result.stderr
+        report = json.loads(result.stdout)
+        assert report["doctorType"] == "codex-with-cc-preflight"
+        assert report["recommendedAction"] in {
+            "dispatch_allowed",
+            "dispatch_allowed_but_review_warnings",
+            "fix_local_environment_before_dispatch",
+        }
+        assert report["artifactRoot"] == str(root.resolve())
+        check_names = {item["name"] for item in report["checks"]}
+        assert "python_runtime" in check_names
+        assert "workflow_contract" in check_names
+        assert "artifact_root_writable" in check_names
+        assert "claude_cli_available" in check_names

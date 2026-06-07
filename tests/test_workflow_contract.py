@@ -89,6 +89,115 @@ def run_id_from_output(output: str) -> str:
     raise AssertionError(f"RunId line missing from output:\n{output}")
 
 
+def write_failed_implementer_artifacts(root: Path) -> str:
+    run_id = "failed-implementer-run"
+    workflow_id = "wf-failed-implementer"
+    task_id = "failed-implementer-task"
+    output_path = root / f"claude_{run_id}.md"
+    prompt_path = root / f"prompt_{run_id}.md"
+    stream_path = root / f"stream_{run_id}.jsonl"
+    trace_path = root / f"trace_{run_id}.log"
+    status_path = root / f"status_{run_id}.json"
+    config_path = root / f"config_{run_id}.json"
+    root.mkdir(parents=True, exist_ok=True)
+    output_path.write_text(workflow_report(status="FAIL", role="implementer"), encoding="utf-8")
+    prompt_path.write_text("# prompt", encoding="utf-8")
+    stream_path.write_text('{"type":"result","subtype":"error_during_execution","is_error":true}\n', encoding="utf-8")
+    trace_path.write_text("[result] error_during_execution\n", encoding="utf-8")
+    common = {
+        "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+        "invocationContract": "codex_with_cc_workflow",
+        "childThreadMarkerName": "CODEX_CLAUDE_CHILD_THREAD",
+        "childThreadMarkerValidated": True,
+        "runId": run_id,
+        "workflowId": workflow_id,
+        "taskId": task_id,
+        "role": "implementer",
+        "runnerType": "claude_code",
+        "outputPath": str(output_path),
+        "promptPath": str(prompt_path),
+        "rawStreamPath": str(stream_path),
+        "tracePath": str(trace_path),
+        "sessionKey": "failed-implementer",
+        "sessionMode": "PrimaryReuse",
+        "initialSessionId": "session-a",
+        "initialResume": False,
+        "sessionId": "session-a",
+        "resume": False,
+        "attemptCount": 1,
+        "retryCount": 0,
+        "maxRetryCount": 0,
+        "failureDisposition": "NEED_HUMAN_INTERVENTION",
+        "failureSummary": "CLAUDE_API_ERROR: API Error: Unable to connect to API (ConnectionRefused)",
+    }
+    config = {**common, "statusPath": str(status_path)}
+    status = {
+        **common,
+        "status": "failed",
+        "exitCode": 1,
+        "outputBytes": output_path.stat().st_size,
+        "attempts": [
+            {
+                "attempt": 1,
+                "sessionId": "session-a",
+                "resume": False,
+                "retryReason": None,
+                "exitCode": 1,
+                "sawAssistantText": False,
+                "sawResultSuccess": False,
+                "capturedFinalResult": True,
+            }
+        ],
+    }
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    status_path.write_text(json.dumps(status), encoding="utf-8")
+    workflow_path(root, workflow_id).write_text(
+        json.dumps(
+            {
+                "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+                "invocationContract": "codex_with_cc_workflow",
+                "workflowId": workflow_id,
+                "tasks": {
+                    task_id: {
+                        "taskId": task_id,
+                        "role": "implementer",
+                        "scope": [],
+                        "verification": [],
+                        "runs": [run_id],
+                        "status": "failed",
+                        "lastReportStatus": "FAIL",
+                        "lastReportFinalResult": "FAIL",
+                        "lastReportRole": "implementer",
+                        "reviewDecision": "failed",
+                        "reviews": {},
+                    }
+                },
+                "runs": {
+                    run_id: {
+                        "runId": run_id,
+                        "taskId": task_id,
+                        "role": "implementer",
+                        "runnerType": "claude_code",
+                        "status": "failed",
+                        "reportStatus": "FAIL",
+                        "reportFinalResult": "FAIL",
+                        "reportRole": "implementer",
+                        "reviewDecision": "failed",
+                        "configPath": str(config_path),
+                        "statusPath": str(status_path),
+                        "outputPath": str(output_path),
+                        "promptPath": str(prompt_path),
+                        "rawStreamPath": str(stream_path),
+                        "tracePath": str(trace_path),
+                    }
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return workflow_id
+
+
 def test_readme_install_prompt_remains_available() -> None:
     current = (REPO / "README.md").read_text(encoding="utf-8")
     assert "请把 https://github.com/shaoqing404/codex_with_cc_plus 子代理工作流安装或更新到当前 Codex 环境。" in current
@@ -187,6 +296,21 @@ def test_delegate_dry_run_writes_workflow_artifacts_and_verifies_them() -> None:
 
         assert verify_run.returncode == 0, verify_run.stdout + verify_run.stderr
         assert verify_workflow.returncode == 0, verify_workflow.stdout + verify_workflow.stderr
+
+
+def test_verify_workflow_prioritizes_failed_implementer_before_missing_reviews() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_failed_workflow_") as tmp:
+        root = Path(tmp)
+        artifact_root = root / "artifacts"
+        workflow_id = write_failed_implementer_artifacts(artifact_root)
+        env = {**os.environ, "PYTHONDONTWRITEBYTECODE": "1"}
+
+        verify_workflow = run_python(VERIFY_WORKFLOW, "-WorkflowId", workflow_id, "-ArtifactRoot", str(artifact_root), cwd=REPO, env=env)
+
+        assert verify_workflow.returncode != 0
+        assert "Workflow implementer gate failed" in verify_workflow.stderr
+        assert "review gates are not applicable yet" in verify_workflow.stderr
+        assert "missing spec" not in verify_workflow.stderr
 
 
 def test_hook_gate_requires_workflow_payload_fields_and_write_scope_for_parallel() -> None:

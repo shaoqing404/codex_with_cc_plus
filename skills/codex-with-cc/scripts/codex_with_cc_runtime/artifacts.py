@@ -262,6 +262,7 @@ def run_verify_workflow(ns: argparse.Namespace) -> int:
     verified_runs: dict[str, dict[str, Any]] = {}
     for run_id in (workflow.get("runs") or {}).keys():
         verified_runs[str(run_id)] = verify_artifacts(str(run_id), str(root))
+    enforce_no_failed_implementers_before_review_gates(workflow)
     enforce_workflow_review_gates(workflow)
     enforce_workflow_final_verifier_gate(workflow)
     enforce_declared_tests_are_reported(workflow, verified_runs)
@@ -304,6 +305,26 @@ def enforce_workflow_review_gates(workflow: dict[str, Any]) -> None:
             problems.append(f"implementer task {task_id} has non-accepted {', '.join(rejected)} review")
     if problems:
         raise DelegateError("Workflow review gates failed: " + "; ".join(problems))
+
+
+def enforce_no_failed_implementers_before_review_gates(workflow: dict[str, Any]) -> None:
+    tasks = workflow.get("tasks") if isinstance(workflow.get("tasks"), dict) else {}
+    problems: list[str] = []
+    blocking_statuses = {"FAIL", "BLOCKED", "NEEDS_CONTEXT"}
+    for task_id, task in tasks.items():
+        if not isinstance(task, dict) or task.get("role") != "implementer":
+            continue
+        report_status = str(task.get("lastReportStatus") or "")
+        report_final = str(task.get("lastReportFinalResult") or "")
+        task_status = str(task.get("status") or "")
+        if task_status == "failed" or report_status in blocking_statuses or report_final in blocking_statuses:
+            status_text = report_status or report_final or task_status
+            problems.append(
+                f"implementer task {task_id} ended as {status_text} before implementation acceptance; "
+                "spec/quality review gates are not applicable yet"
+            )
+    if problems:
+        raise DelegateError("Workflow implementer gate failed: " + "; ".join(problems))
 
 
 def enforce_workflow_final_verifier_gate(workflow: dict[str, Any]) -> None:

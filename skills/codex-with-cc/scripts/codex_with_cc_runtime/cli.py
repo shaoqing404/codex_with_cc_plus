@@ -7,6 +7,7 @@ from typing import Callable
 from .artifacts import run_verify_artifacts, run_verify_chain, run_verify_workflow
 from .common import DelegateError, WORKER_ROLES
 from .delegate import run_delegate
+from .doctor import run_doctor
 from .openai_compatible_report import run_openai_compatible_report_delegate
 from .real_chain import run_real_chain_validation
 from .selftests import run_test_runtime, run_test_session_pool
@@ -132,6 +133,13 @@ def build_parser() -> argparse.ArgumentParser:
 
     sub.add_parser("test-runtime").set_defaults(func=run_test_runtime)
     sub.add_parser("test-session-pool").set_defaults(func=run_test_session_pool)
+
+    doctor = sub.add_parser("doctor", allow_abbrev=False)
+    doctor.add_argument("-ArtifactRoot", dest="artifact_root")
+    doctor.add_argument("-ClaudeSmoke", dest="claude_smoke", action="store_true")
+    doctor.add_argument("-TimeoutSeconds", dest="timeout_seconds", type=int, default=10)
+    doctor.add_argument("--json", dest="json", action="store_true")
+    doctor.set_defaults(func=run_doctor)
 
     # ccviz subcommands
     ccviz = sub.add_parser("ccviz", allow_abbrev=False)

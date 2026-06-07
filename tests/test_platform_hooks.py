@@ -197,6 +197,30 @@ def test_pre_tool_use_allows_compliant_spawn_agent_payload_with_runner_descripti
     assert output == {}
 
 
+def test_pre_tool_use_allows_explanatory_legacy_arg_text_in_compliant_spawn_agent_payload() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "spawn_agent",
+            "tool_input": {
+                "message": (
+                    "This is a compliant child thread. Do not use legacy inline -Task or -Mode. "
+                    "Set CODEX_CLAUDE_CHILD_THREAD=1 and run "
+                    "windows_scripts/delegate_to_claude.ps1 -TaskFile "
+                    ".codex/codex_with_cc/tasks/20260514/120000000-task.md "
+                    "-WorkflowId wf-a -TaskId task-a -Role researcher -SessionKey wf-a "
+                    "-Scope skills/codex-with-cc"
+                ),
+                "model": "gpt-5.4-mini",
+                "reasoning_effort": "medium",
+                "fork_context": False,
+            },
+        }
+    )
+
+    assert output == {}
+
+
 def test_pre_tool_use_denies_direct_claude_shell_command() -> None:
     output = run_hook(
         {
@@ -227,6 +251,27 @@ def test_pre_tool_use_denies_delegate_shell_without_child_marker() -> None:
 
     assert "CODEX_CLAUDE_CHILD_THREAD=1" in reason
     assert "-TaskFile" in reason
+
+
+def test_pre_tool_use_denies_actual_legacy_delegate_args() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "Bash",
+            "tool_input": {
+                "command": (
+                    "CODEX_CLAUDE_CHILD_THREAD=1 "
+                    "skills/codex-with-cc/macos_scripts/delegate_to_claude.sh "
+                    "-Task \"do work\" -WorkflowId wf-a -TaskId task-a "
+                    "-Role researcher -SessionKey wf-a -Mode researcher"
+                )
+            },
+        }
+    )
+    reason = hook_specific(output)["permissionDecisionReason"]
+
+    assert "legacy inline -Task" in reason
+    assert "legacy -Mode" in reason
 
 
 def test_pre_tool_use_allows_read_only_delegate_script_inspection() -> None:

@@ -40,6 +40,8 @@ Use this as a controlled delivery pipeline, borrowing the core discipline from S
 1. Design gate: clarify the goal, success criteria, scope, constraints, and acceptance evidence before dispatch.
 2. Plan gate: split work into task-file-sized assignments with explicit allowed scope, forbidden actions, verification commands, and review gates.
 3. Dispatch gate: create a fresh child thread per task; do not let workers inherit noisy main-thread context.
+   For implementation runs, use `ccdoctor` when local Claude Code health is uncertain;
+   it is a deterministic preflight and does not call a model.
 4. Implementer gate: implementation workers must use test-first or the smallest equivalent verification-first evidence when the repository has a practical test surface.
 5. Review in two passes. First perform spec compliance review; then perform quality review for minimality, maintainability, regression risk, and test sufficiency.
 6. Final-verifier gate: use a final verifier to confirm the aggregate workflow, residual risks, declared verification evidence, and accepted review gates.
@@ -201,6 +203,11 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
 `RUNNING_DEAD_PROCESS` means a status artifact still says `running` but the recorded worker PID is no longer alive. This is an interrupted/stale run, not partial success. Do not accept it; rerun the task or trigger failure forensics.
+
+Structured execution failures can have valid artifacts while business acceptance is
+blocked. Treat fields such as `workerOutcome=FAIL`, `businessAcceptance=blocked`,
+`failureLayer=claude_api_connection`, and `mayOverrideImplementation=false` as a
+clear stop before spec/quality/final-verifier gates.
 
 `<installed-workflow-root>` means the installed `skills/codex-with-cc` directory, for example `<codex-home>/plugins/cache/aiskyhub/codex-with-cc/<version-or-hash>/skills/codex-with-cc`. Do not use the package root `<version-or-hash>` directory.
 

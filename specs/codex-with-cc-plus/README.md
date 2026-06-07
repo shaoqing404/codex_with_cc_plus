@@ -43,6 +43,7 @@ Failure branches:
 ## Commands
 
 - `ccspec path|list|new`: manage tracked specs.
+- `ccdoctor`: run deterministic local pre-dispatch health checks.
 - `ccwatch -RunId <id>` or `ccwatch -WorkflowId <id>`: read artifact-grounded status.
 - `ccsupervise -RunId <id>`: write `supervisor_<RunId>.json/.md` after observation.
 
