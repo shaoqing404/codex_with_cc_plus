@@ -49,5 +49,11 @@ Failure branches:
 - `ccclean list|plan|apply`: inspect and reversibly clean old workflow artifact
   groups with explicit protection reasons.
 
+## Planned Next Phase
+
+- `0005-machine-observability-browser-runtime-control.md`: browser verification lane,
+  Claude Code runtime/model/permission visibility, machine-level workflow index, and
+  local/Codex Sites dashboard planning.
+
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.
