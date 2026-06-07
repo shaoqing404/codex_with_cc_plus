@@ -18,6 +18,7 @@ from .paths import repo_root, runtime_python_root
 from .real_chain import run_real_chain_validation
 from .reports import text_has_required_report_headings
 from .sessions import acquire_session_lease, release_session_lease, reset_session_lease_for_fresh_session
+from .supervision import build_run_supervisor_summary
 from .workflow import workflow_path
 
 
@@ -442,6 +443,98 @@ def run_test_runtime(_: argparse.Namespace) -> int:
         assert_true(text_has_required_report_headings(api_error_output), "api-error-output-has-report-headings")
         verify_artifacts(api_error_run_id, str(api_error_root))
 
+        stale_retry_root = temp_root / "stale-api-error-retry-cleanup"
+        warmup = run_delegate_subprocess(
+            [
+                *delegate_task_args(temp_root, "stale-api-retry-warmup", "warm session before stale retry", "implementer"),
+                "-ArtifactRoot",
+                str(stale_retry_root),
+                "-SessionKey",
+                "stale-api-retry",
+                "-DryRun",
+            ],
+            env={CHILD_MARKER_NAME: "1"},
+        )
+        assert_equal(warmup.returncode, 0, "stale-api-retry-warmup-succeeds")
+        stale_success_report = "\n".join(
+            (
+                "Status",
+                "DONE",
+                "",
+                "Role",
+                "implementer",
+                "",
+                "Summary",
+                "Fresh retry succeeded after stale session recovery.",
+                "",
+                "Changed Files",
+                "None",
+                "",
+                "Verification",
+                "- fake stale retry verification passed",
+                "",
+                "Findings",
+                "- stale session was retried with a fresh session",
+                "",
+                "Final Result",
+                "DONE",
+                "",
+                "Risks Or Follow-ups",
+                "None",
+            )
+        )
+        stale_non_json = "No conversation found with session ID: stale-session"
+        stale_error_record = json.dumps(
+            {
+                "type": "result",
+                "subtype": "error_during_execution",
+                "is_error": True,
+                "usage": {"input_tokens": 0, "output_tokens": 0},
+            },
+            separators=(",", ":"),
+        )
+        stale_success_record = json.dumps(
+            {"type": "assistant", "message": {"role": "assistant", "content": [{"type": "text", "text": stale_success_report}]}},
+            separators=(",", ":"),
+        )
+        stale_result_record = json.dumps({"type": "result", "subtype": "success"}, separators=(",", ":"))
+        stale_fake_bin = make_stateful_python_jsonl_fake_claude_bin(
+            temp_root,
+            [stale_non_json, stale_error_record],
+            [stale_success_record, stale_result_record],
+            temp_root / "stale_api_retry_seen.txt",
+            "fake-claude-stale-api-retry-bin",
+        )
+        stale_env = {CHILD_MARKER_NAME: "1", "PATH": f"{stale_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        stale_retry = run_delegate_subprocess(
+            [
+                *delegate_task_args(temp_root, "stale-api-retry-cleanup", "stale API retry cleanup probe", "implementer"),
+                "-ArtifactRoot",
+                str(stale_retry_root),
+                "-SessionKey",
+                "stale-api-retry",
+                "-MaxRetryCount",
+                "1",
+            ],
+            env=stale_env,
+        )
+        assert_equal(stale_retry.returncode, 0, "stale-api-retry-cleanup-succeeds")
+        stale_status_paths = sorted(stale_retry_root.glob("status_*.json"), key=lambda item: item.stat().st_mtime)
+        stale_config_paths = sorted(stale_retry_root.glob("config_*.json"), key=lambda item: item.stat().st_mtime)
+        stale_status = load_json(stale_status_paths[-1])
+        stale_config = load_json(stale_config_paths[-1])
+        stale_output = read_text(Path(stale_config["outputPath"]))
+        assert_equal(stale_status["status"], "completed", "stale-api-retry-status-completed")
+        assert_equal(int(stale_status["retryCount"]), 1, "stale-api-retry-retry-count")
+        assert_equal(stale_status["lastRetryReason"], "stale_claude_session", "stale-api-retry-last-reason")
+        assert_equal(stale_status["attempts"][0]["retryReason"], "stale_claude_session", "stale-api-retry-attempt-reason")
+        assert_true(not boolish(stale_status["attempts"][1]["resume"]), "stale-api-retry-fresh-attempt")
+        for key_name in ("failureDisposition", "failureSummary", "apiErrorStatus", "finalRetryReason"):
+            assert_true(key_name not in stale_status, f"stale-api-retry-status-clears-{key_name}")
+            assert_true(key_name not in stale_config, f"stale-api-retry-config-clears-{key_name}")
+        assert_true(text_has_required_report_headings(stale_output), "stale-api-retry-output-structured")
+        verify_artifacts(str(stale_status["runId"]), str(stale_retry_root))
+
         retry_report = "\n".join(
             (
                 "Status",
@@ -652,6 +745,86 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             },
         )
         verify_artifacts(run_id, str(verify_root))
+
+        dead_root = temp_root / "dead-running"
+        dead_root.mkdir(parents=True, exist_ok=True)
+        dead_run_id = "dead-running-test"
+        dead_session_key = "dead-running-session"
+        dead_pid = 99999999
+        dead_output_path = dead_root / f"claude_{dead_run_id}.md"
+        dead_status_path = dead_root / f"status_{dead_run_id}.json"
+        dead_config_path = dead_root / f"config_{dead_run_id}.json"
+        dead_stream_path = dead_root / f"stream_{dead_run_id}.jsonl"
+        dead_trace_path = dead_root / f"trace_{dead_run_id}.log"
+        write_text(dead_stream_path, '{"type":"assistant","message":{"content":[{"type":"text","text":"working"}]}}\n')
+        write_text(dead_trace_path, "[assistant]\n")
+        dead_config = {
+            "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+            "invocationContract": INVOCATION_CONTRACT,
+            "childThreadMarkerName": CHILD_MARKER_NAME,
+            "childThreadMarkerValidated": True,
+            "runId": dead_run_id,
+            "workflowId": "dead-running-workflow",
+            "taskId": "dead-running-task",
+            "role": "implementer",
+            "runnerType": "claude_code",
+            "outputPath": str(dead_output_path),
+            "statusPath": str(dead_status_path),
+            "rawStreamPath": str(dead_stream_path),
+            "tracePath": str(dead_trace_path),
+            "sessionKey": dead_session_key,
+            "sessionMode": "PrimaryReuse",
+            "initialSessionId": "dead-session",
+            "initialResume": False,
+            "sessionId": "dead-session",
+            "resume": False,
+            "attemptCount": 1,
+            "retryCount": 0,
+        }
+        dead_status = {
+            "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+            "invocationContract": INVOCATION_CONTRACT,
+            "childThreadMarkerName": CHILD_MARKER_NAME,
+            "childThreadMarkerValidated": True,
+            "runId": dead_run_id,
+            "workflowId": "dead-running-workflow",
+            "taskId": "dead-running-task",
+            "role": "implementer",
+            "runnerType": "claude_code",
+            "status": "running",
+            "pid": dead_pid,
+            "outputPath": str(dead_output_path),
+            "rawStreamPath": str(dead_stream_path),
+            "tracePath": str(dead_trace_path),
+            "exitCode": None,
+            "attemptCount": 1,
+            "retryCount": 0,
+            "attempts": [
+                {
+                    "attempt": 1,
+                    "sessionId": "dead-session",
+                    "resume": False,
+                    "retryReason": None,
+                    "exitCode": None,
+                    "sawAssistantText": True,
+                    "sawResultSuccess": False,
+                    "capturedFinalResult": False,
+                    "pid": dead_pid,
+                }
+            ],
+        }
+        write_json(dead_config_path, dead_config)
+        write_json(dead_status_path, dead_status)
+        try:
+            verify_artifacts(dead_run_id, str(dead_root))
+        except DelegateError as exc:
+            assert_true("recorded PID" in str(exc), "dead-running-verifier-reports-dead-pid")
+        else:
+            raise DelegateError("[dead-running-verifier-fails] expected verifier failure")
+        dead_summary = build_run_supervisor_summary(dead_run_id, str(dead_root), stale_after_seconds=600)
+        assert_equal(dead_summary["state"], "RUNNING_DEAD_PROCESS", "dead-running-supervisor-state")
+        assert_equal(dead_summary["process"]["pid"], dead_pid, "dead-running-supervisor-pid")
+        assert_equal(dead_summary["process"]["alive"], False, "dead-running-supervisor-process-dead")
 
         validation_root = temp_root / "real-chain-validation"
         run_real_chain_validation(argparse.Namespace(validation_root=str(validation_root), name="sample-real-chain", session_key="sample-session"))

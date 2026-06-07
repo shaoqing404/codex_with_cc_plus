@@ -28,5 +28,6 @@ Dispatch discipline:
 - Dispatch a final-verifier task for any workflow with implementer tasks.
 - Use parallel dispatch only after scope boundaries are explicit enough to avoid file conflicts.
 - After a parallel batch, wait for the anchor and side tasks before serial review or follow-up implementation.
+- A child thread must wait for terminal delegate evidence. Artifact paths, `status: running`, `RUNNING_ACTIVE`, or `STARTING` are not completion. If the worker report is missing or non-terminal, run `ccsupervise -Wait` and then deterministic verification before returning a worker result.
 
 Do not dispatch default Codex workers outside the codex-with-cc chain.

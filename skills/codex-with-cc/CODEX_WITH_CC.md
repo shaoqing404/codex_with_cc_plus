@@ -68,6 +68,7 @@ Runner separation:
 - Report, audit, preflight, final-verifier, and normalization work: `delegate_to_openai_compatible_report.*` carried by a Codex child thread, then DeepSeek Flash or another OpenAI-compatible model.
 - Dispatch planning: `Dispatch Planner` uses DeepSeek V4-Pro to draft workflow plans, TaskFiles, and risk notes before dispatch. It is an authoring assistant only; it must not execute shell commands, edit business files, override the local validator, or dispatch implementation work.
 - Run observation: `Run Supervisor` is a Codex child-thread orchestration role. It supervises one delegated run, observes that run's artifacts, runs deterministic verification, and returns concise status to the main thread. It may observe the supervised run's artifacts, but it must not observe its own live artifacts or recursively create unassigned delegate runs.
+- A child thread must not report a delegated run as finished merely because artifact paths were printed or status is `running`. If the worker report is missing or the status is non-terminal, run `ccsupervise -Wait` or keep polling until the run is `RUN_VERIFIED`, `REPORT_READY`, `FAILED`, `STALE`, or `RUNNING_DEAD_PROCESS`. Treat `RUNNING_ACTIVE` and `STARTING` as wait states only.
 - Failure forensics: `Forensic Analyst` uses DeepSeek V4-Pro only after a deterministic verifier failure or explicit human request. It explains the failure, classifies risk, and recommends next action with `mayOverrideVerifier=false`.
 
 Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain validation failures or draft a corrected TaskFile, but only as an authoring assistant. It must not edit business files, must not run shell tests, must not dispatch implementation work, and its report must state `mayOverrideValidator=false`. The deterministic `validate_delegate_task.*` result remains the only hard gate for whether a TaskFile is dispatchable.
@@ -197,7 +198,9 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 - `trace_<RunId>.log`
 - `session-pools/<SessionKey>.json`
 
-Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
+Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
+
+`RUNNING_DEAD_PROCESS` means a status artifact still says `running` but the recorded worker PID is no longer alive. This is an interrupted/stale run, not partial success. Do not accept it; rerun the task or trigger failure forensics.
 
 `<installed-workflow-root>` means the installed `skills/codex-with-cc` directory, for example `<codex-home>/plugins/cache/aiskyhub/codex-with-cc/<version-or-hash>/skills/codex-with-cc`. Do not use the package root `<version-or-hash>` directory.
 

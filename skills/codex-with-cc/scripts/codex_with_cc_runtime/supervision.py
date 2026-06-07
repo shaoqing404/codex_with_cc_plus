@@ -6,9 +6,10 @@ import time
 from pathlib import Path
 from typing import Any
 
-from .artifacts import resolve_artifact_root, verify_artifacts
+from .artifacts import recorded_delegate_pid, resolve_artifact_root, verify_artifacts
 from .common import ARTIFACT_SCHEMA_VERSION, INVOCATION_CONTRACT, DelegateError, now_iso
 from .io_utils import load_json, read_text, write_json, write_text
+from .locks import pid_alive
 from .paths import repo_root
 from .reports import parse_report_final_result, parse_report_role, parse_report_status, report_summary_line
 from .workflow import workflow_path
@@ -20,6 +21,7 @@ RUN_SUPERVISOR_STATES = (
     "RUNNING_QUIET",
     "REPORT_READY",
     "RUN_VERIFIED",
+    "RUNNING_DEAD_PROCESS",
     "STALE",
     "FAILED",
 )
@@ -108,11 +110,15 @@ def build_run_supervisor_summary(
     report_final = parse_report_final_result(report_text) if report_text else ""
     report_role = parse_report_role(report_text) if report_text else ""
     terminal = run_status in ("completed", "failed")
+    pid = recorded_delegate_pid(status)
+    process_alive = pid_alive(pid) if pid is not None else None
 
     if terminal and output_path.exists():
         state = "REPORT_READY"
     elif run_status == "failed":
         state = "FAILED"
+    elif run_status == "running" and pid is not None and process_alive is False:
+        state = "RUNNING_DEAD_PROCESS"
     elif run_status == "running":
         state = "STALE" if idle_seconds is not None and idle_seconds >= stale_after_seconds else "RUNNING_ACTIVE"
     elif run_status == "starting":
@@ -130,6 +136,7 @@ def build_run_supervisor_summary(
         "RUN_VERIFIED": "main_accept_or_review_report",
         "REPORT_READY": "run_deterministic_verifier",
         "FAILED": "inspect_failure_or_trigger_forensic_analyst",
+        "RUNNING_DEAD_PROCESS": "treat_run_as_interrupted_then_rerun_or_trigger_forensics",
         "STALE": "ask_run_supervisor_for_staleness_details_or_human_decision",
         "RUNNING_ACTIVE": "continue_waiting_on_run_supervisor",
         "RUNNING_QUIET": "continue_waiting_or_check_trace",
@@ -150,6 +157,10 @@ def build_run_supervisor_summary(
         "idleSeconds": idle_seconds,
         "staleAfterSeconds": stale_after_seconds,
         "lastStreamEvent": _last_stream_event(stream_path),
+        "process": {
+            "pid": pid,
+            "alive": process_alive,
+        },
         "report": {
             "path": str(output_path),
             "exists": output_path.exists(),
@@ -219,6 +230,7 @@ def render_watch_text(summary: dict[str, Any]) -> str:
             f"State: {summary.get('state')}",
             f"RunStatus: {summary.get('runStatus')}",
             f"IdleSeconds: {summary.get('idleSeconds')}",
+            f"Process: pid={((summary.get('process') or {}).get('pid'))} alive={((summary.get('process') or {}).get('alive'))}",
             f"Report: {(summary.get('report') or {}).get('path')}",
             f"Verifier: {(summary.get('deterministicVerifierResult') or {}).get('status')}",
             f"RecommendedAction: {summary.get('recommendedAction')}",
@@ -272,7 +284,16 @@ def run_ccwatch(ns: argparse.Namespace) -> int:
 
 
 def run_ccsupervise(ns: argparse.Namespace) -> int:
-    summary = build_run_supervisor_summary(ns.run_id, ns.artifact_root, ns.stale_after_seconds, verify=not ns.no_verify)
+    deadline = time.monotonic() + max(0, int(ns.timeout_seconds))
+    while True:
+        summary = build_run_supervisor_summary(ns.run_id, ns.artifact_root, ns.stale_after_seconds, verify=not ns.no_verify)
+        if not ns.wait or summary["state"] not in ("STARTING", "RUNNING_ACTIVE", "RUNNING_QUIET"):
+            break
+        if time.monotonic() >= deadline:
+            summary["waitTimedOut"] = True
+            summary["recommendedAction"] = "continue_waiting_or_increase_supervisor_timeout"
+            break
+        time.sleep(max(0.2, float(ns.poll_seconds)))
     json_path, md_path = write_supervisor_artifacts(summary, ns.artifact_root)
     if ns.json:
         print(json.dumps(summary, ensure_ascii=False, indent=2))
@@ -280,7 +301,10 @@ def run_ccsupervise(ns: argparse.Namespace) -> int:
         print(render_watch_text(summary))
         print(f"SupervisorJson: {json_path}")
         print(f"SupervisorMarkdown: {md_path}")
-    return 0 if summary["state"] in ("RUN_VERIFIED", "REPORT_READY", "RUNNING_ACTIVE", "STARTING") else 1
+    ok_states = ("RUN_VERIFIED", "REPORT_READY")
+    if not ns.wait:
+        ok_states = (*ok_states, "RUNNING_ACTIVE", "STARTING")
+    return 0 if summary["state"] in ok_states else 1
 
 
 def run_ccspec(ns: argparse.Namespace) -> int:

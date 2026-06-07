@@ -26,6 +26,13 @@ from .workflow import normalize_role, safe_task_id, update_workflow_record, work
 
 
 RUNNER_TYPE = "claude_code"
+TRANSIENT_FAILURE_KEYS = ("failureDisposition", "failureSummary", "apiErrorStatus", "finalRetryReason")
+
+
+def clear_transient_failure_fields(*objects: dict[str, Any]) -> None:
+    for obj in objects:
+        for key in TRANSIENT_FAILURE_KEYS:
+            obj.pop(key, None)
 
 
 def startup_failure_report(message: str, role: str = "reviewer") -> str:
@@ -525,6 +532,10 @@ def run_delegate(ns: argparse.Namespace) -> int:
         with raw_stream_path.open("w", encoding="utf-8") as raw_handle, trace_path.open("w", encoding="utf-8") as trace_handle:
             while attempt < max_attempts:
                 attempt += 1
+                if attempt > 1:
+                    failure_disposition = ""
+                    failure_summary_text = ""
+                    clear_transient_failure_fields(config, status)
                 capture_state: dict[str, Any] = {
                     "assistantTexts": [],
                     "traceLines": [],

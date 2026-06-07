@@ -8,6 +8,7 @@ from typing import Any, Iterable
 
 from .common import ARTIFACT_SCHEMA_VERSION, CHILD_MARKER_NAME, INVOCATION_CONTRACT, REPORT_STATUS_VALUES, WORKER_ROLES, DelegateError, boolish, same_path
 from .io_utils import load_json
+from .locks import pid_alive
 from .paths import project_artifact_root, user_artifact_root
 from .reports import parse_report_final_result, parse_report_role, parse_report_status, path_has_required_report_headings, report_section
 from .workflow import REQUIRED_IMPLEMENTER_REVIEWS, workflow_path
@@ -29,6 +30,34 @@ def resolve_artifact_root(artifact_root_value: str | None, run_id: str | None = 
     return candidates[0]
 
 
+def recorded_delegate_pid(status: dict[str, Any]) -> int | None:
+    pid = status.get("pid")
+    if pid in (None, ""):
+        attempts = list(status.get("attempts") or [])
+        if attempts and isinstance(attempts[-1], dict):
+            pid = attempts[-1].get("pid")
+    try:
+        pid_int = int(pid)
+    except (TypeError, ValueError):
+        return None
+    return pid_int if pid_int > 0 else None
+
+
+def running_dead_process_message(status: dict[str, Any]) -> str | None:
+    if str(status.get("status") or "") != "running":
+        return None
+    pid = recorded_delegate_pid(status)
+    if pid is None or pid_alive(pid):
+        return None
+    run_id = str(status.get("runId") or "<unknown>")
+    output_path = str(status.get("outputPath") or "")
+    suffix = f" Output was expected at: {output_path}." if output_path else ""
+    return (
+        f"Delegate status is still running for RunId {run_id}, but recorded PID {pid} is not alive."
+        f"{suffix} Treat this run as interrupted/stale; rerun or trigger failure forensics instead of accepting it."
+    )
+
+
 def verify_artifacts(run_id: str, artifact_root_value: str | None) -> dict[str, Any]:
     root = resolve_artifact_root(artifact_root_value, run_id=run_id)
     config_path = root / f"config_{run_id}.json"
@@ -39,6 +68,12 @@ def verify_artifacts(run_id: str, artifact_root_value: str | None) -> dict[str, 
     config = load_json(config_path)
     status = load_json(status_path)
     output_path = Path(str(config.get("outputPath") or (root / f"claude_{run_id}.md"))).resolve()
+    status_value = str(status.get("status"))
+    if status_value not in ("starting", "running", "completed", "failed"):
+        raise DelegateError(f"Unexpected delegate status value: {status_value}")
+    dead_process_message = running_dead_process_message(status)
+    if dead_process_message:
+        raise DelegateError(dead_process_message)
     if not output_path.exists():
         raise DelegateError(f"Missing delegate output: {output_path}")
     for obj in (config, status):
@@ -56,9 +91,6 @@ def verify_artifacts(run_id: str, artifact_root_value: str | None) -> dict[str, 
         raise DelegateError(f"Config outputPath mismatch. Expected: {output_path} ; Actual: {config.get('outputPath')}")
     if not same_path(str(status.get("outputPath")), output_path):
         raise DelegateError(f"Status outputPath mismatch. Expected: {output_path} ; Actual: {status.get('outputPath')}")
-    status_value = str(status.get("status"))
-    if status_value not in ("starting", "running", "completed", "failed"):
-        raise DelegateError(f"Unexpected delegate status value: {status_value}")
     completed = status_value == "completed"
     structured_failure = status_value == "failed"
     if not completed and not structured_failure:

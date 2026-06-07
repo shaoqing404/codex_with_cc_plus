@@ -18,6 +18,7 @@ Completion checklist:
 - Confirm parallel implementer tasks have explicit non-overlapping scopes.
 - Confirm task files used the required Goal / Scope / Forbidden / Acceptance / Verification / Report contract.
 - Confirm every accepted run has matching Status, Role, Final Result, and workflow artifact metadata.
+- Reject `RUNNING_ACTIVE`, `STARTING`, `STALE`, and `RUNNING_DEAD_PROCESS` as incomplete. `RUNNING_DEAD_PROCESS` means the recorded worker PID died while status stayed `running`; treat it as an interrupted run requiring rerun or forensics.
 - Summarize only accepted tasks, rejected tasks, blocked tasks, verification evidence, and residual risks.
 
 Do not claim completion unless verification actually ran and passed or the blocker is explicitly reported.
