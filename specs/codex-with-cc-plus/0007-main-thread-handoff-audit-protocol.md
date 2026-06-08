@@ -40,6 +40,10 @@ Implemented in this phase:
   `safeToRetrySameTaskFile=true`;
 - hook fallback context for `ccstatus preflight`, `WAITING`, `REFUSED`,
   `RUNNING_DEAD_PROCESS`, audit handoff, and DS advisory-only boundaries;
+- hook gate enforcement for direct shell tools, spawn tools, and nested
+  `multi_tool_use.parallel` shell/spawn entries, including direct `claude`,
+  non-child delegate calls, legacy delegate arguments, reviewer metadata gaps,
+  and parallel scope gaps;
 - read-only cc-switch provider adapter for CLI discovery and redacted desktop
   state inspection;
 - local zero-token `dsRouting` plans in run/workflow audit packages.
@@ -612,7 +616,9 @@ Implemented:
 - tests cover `WAITING`, `FAILED`, and `RUNNING_DEAD_PROCESS` artifacts, while
   existing dry-run verified reports cover the `REPORT_READY`/`RUN_VERIFIED`
   transfer path;
-- hook guidance tells child threads to read contract/spec on abnormal states.
+- hook guidance tells child threads to read contract/spec on abnormal states;
+- hook gate tests cover nested `multi_tool_use.parallel` direct Claude and
+  delegate-shell bypass attempts.
 
 Future refinement:
 

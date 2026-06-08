@@ -229,7 +229,12 @@ function toolNameTail(toolName) {
 
 function isShellToolName(toolName) {
   const normalized = String(toolName || "").toLowerCase();
-  return normalized === "bash" || normalized === "shell_command" || toolNameTail(normalized) === "shell_command";
+  const tail = toolNameTail(normalized);
+  return normalized === "bash"
+    || normalized === "shell_command"
+    || normalized === "exec_command"
+    || tail === "shell_command"
+    || tail === "exec_command";
 }
 
 function isWorkflowSpawnToolName(toolName) {
@@ -333,10 +338,21 @@ function hasForbiddenEffort(serialized) {
   return /(?:^|[\s"'])--effort\b/i.test(serialized);
 }
 
-function isReadOnlyInspectionCommand(serialized) {
-  const text = String(serialized || "");
-  const commandMatch = text.match(/"command"\s*:\s*"([^"]*)"/);
-  const command = (commandMatch ? commandMatch[1] : text).replace(/\\n/g, "\n").trim();
+function shellCommandText(payload) {
+  if (typeof payload === "string") {
+    return payload;
+  }
+  if (typeof payload?.command === "string") {
+    return payload.command;
+  }
+  if (typeof payload?.cmd === "string") {
+    return payload.cmd;
+  }
+  return stringify(payload);
+}
+
+function isReadOnlyInspectionCommand(payload) {
+  const command = shellCommandText(payload).replace(/\\n/g, "\n").trim();
   if (!/^(?:sed|cat|rg|grep|head|tail|nl|wc|ls|find)\b/i.test(command)) {
     return false;
   }
@@ -407,19 +423,69 @@ function validateWorkflowPayload(payload) {
   return problems;
 }
 
+function validateShellPayload(payload) {
+  const serialized = stringify(payload);
+  const problems = [];
+
+  if (hasDirectClaudeCommand(serialized)) {
+    problems.push("direct Claude CLI execution is forbidden");
+  }
+
+  if (hasDelegateEntrypoint(serialized) && !isReadOnlyInspectionCommand(payload)) {
+    if (!hasChildMarker(serialized)) {
+      problems.push("CODEX_CLAUDE_CHILD_THREAD=1 is required");
+    }
+    if (!hasTaskFile(serialized)) {
+      problems.push("-TaskFile is required");
+    }
+    if (hasLegacyInlineTask(serialized)) {
+      problems.push("legacy inline -Task is forbidden; use -TaskFile");
+    }
+    if (!hasWorkflowId(serialized)) {
+      problems.push("-WorkflowId is required");
+    }
+    if (!hasTaskId(serialized)) {
+      problems.push("-TaskId is required");
+    }
+    if (!hasSessionKey(serialized)) {
+      problems.push("-SessionKey is required");
+    }
+    if (!hasRole(serialized)) {
+      problems.push("-Role is required");
+    } else if (!ALLOWED_ROLES.has(roleValue(serialized))) {
+      problems.push(`-Role must be one of ${Array.from(ALLOWED_ROLES).join(", ")}`);
+    }
+    if (roleValue(serialized) === "reviewer" && (!hasReviewForTaskId(serialized) || !hasReviewKind(serialized))) {
+      problems.push("reviewer runs require -ReviewForTaskId and -ReviewKind");
+    }
+    if (hasLegacyMode(serialized)) {
+      problems.push("legacy -Mode is forbidden; use -Role");
+    }
+    if (hasAllowParallel(serialized) && !hasScope(serialized)) {
+      problems.push("-Scope is required when -AllowParallel is used");
+    }
+    if (hasForbiddenEffort(serialized)) {
+      problems.push("delegate_to_claude.* must not pass --effort");
+    }
+  }
+
+  return problems;
+}
+
 function handlePreToolUse(input) {
   const toolName = getToolName(input);
   const toolInput = getToolInput(input);
-  const serialized = stringify(toolInput);
   const normalizedToolName = toolName.toLowerCase();
 
   const nestedProblems = [];
   for (const item of nestedToolUses(toolInput)) {
     const name = nestedToolName(item);
-    if (!isWorkflowSpawnToolName(name)) {
-      continue;
+    let problems = [];
+    if (isWorkflowSpawnToolName(name)) {
+      problems = validateWorkflowPayload(nestedToolInput(item));
+    } else if (isShellToolName(name)) {
+      problems = validateShellPayload(nestedToolInput(item));
     }
-    const problems = validateWorkflowPayload(nestedToolInput(item));
     if (problems.length > 0) {
       nestedProblems.push(`nested ${name}: ${problems.join("; ")}`);
     }
@@ -430,50 +496,7 @@ function handlePreToolUse(input) {
   }
 
   if (isShellToolName(normalizedToolName)) {
-    const problems = [];
-
-    if (hasDirectClaudeCommand(serialized)) {
-      problems.push("direct Claude CLI execution is forbidden");
-    }
-
-    if (hasDelegateEntrypoint(serialized) && !isReadOnlyInspectionCommand(serialized)) {
-      if (!hasChildMarker(serialized)) {
-        problems.push("CODEX_CLAUDE_CHILD_THREAD=1 is required");
-      }
-      if (!hasTaskFile(serialized)) {
-        problems.push("-TaskFile is required");
-      }
-      if (hasLegacyInlineTask(serialized)) {
-        problems.push("legacy inline -Task is forbidden; use -TaskFile");
-      }
-      if (!hasWorkflowId(serialized)) {
-        problems.push("-WorkflowId is required");
-      }
-      if (!hasTaskId(serialized)) {
-        problems.push("-TaskId is required");
-      }
-      if (!hasSessionKey(serialized)) {
-        problems.push("-SessionKey is required");
-      }
-      if (!hasRole(serialized)) {
-        problems.push("-Role is required");
-      } else if (!ALLOWED_ROLES.has(roleValue(serialized))) {
-        problems.push(`-Role must be one of ${Array.from(ALLOWED_ROLES).join(", ")}`);
-      }
-      if (roleValue(serialized) === "reviewer" && (!hasReviewForTaskId(serialized) || !hasReviewKind(serialized))) {
-        problems.push("reviewer runs require -ReviewForTaskId and -ReviewKind");
-      }
-      if (hasLegacyMode(serialized)) {
-        problems.push("legacy -Mode is forbidden; use -Role");
-      }
-      if (hasAllowParallel(serialized) && !hasScope(serialized)) {
-        problems.push("-Scope is required when -AllowParallel is used");
-      }
-      if (hasForbiddenEffort(serialized)) {
-        problems.push("delegate_to_claude.* must not pass --effort");
-      }
-    }
-
+    const problems = validateShellPayload(toolInput);
     if (problems.length > 0) {
       writeJson(deny(`codex-with-cc platform gate blocked Bash: ${problems.join("; ")}.`));
     }

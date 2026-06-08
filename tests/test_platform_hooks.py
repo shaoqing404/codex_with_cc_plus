@@ -8,6 +8,7 @@ import tempfile
 
 REPO = Path(__file__).resolve().parents[1]
 HOOK_SCRIPT = REPO / "hooks" / "subagent-gate-hook.mjs"
+CONTRACT = REPO / "skills" / "codex-with-cc" / "contract.json"
 
 
 def run_hook(payload: dict, env: dict[str, str] | None = None) -> dict:
@@ -43,6 +44,18 @@ def test_hooks_config_declares_platform_gate_events() -> None:
     for event_name in hooks:
         command = hooks[event_name][0]["hooks"][0]["command"]
         assert "subagent-gate-hook.mjs" in command
+
+
+def test_contract_declares_hook_gate_boundary() -> None:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    schema = contract["hookGateSchema"]
+
+    assert {"SessionStart", "UserPromptSubmit", "PreToolUse"} <= set(schema["hookEvents"])
+    assert "multi_tool_use.parallel nested shell" in schema["enforcedToolSurfaces"]
+    assert "direct Claude CLI execution" in schema["deniedPatterns"]
+    assert "read-only inspection of delegate scripts" in schema["allowedPatterns"]
+    assert "Claude/OpenClaw/MiniMax runtime health checks" in schema["nonResponsibilities"]
+    assert "cannot replace ccstatus" in schema["acceptanceRule"]
 
 
 def test_session_start_injects_codex_with_cc_contract() -> None:
@@ -166,6 +179,75 @@ def test_pre_tool_use_denies_spawn_agent_inside_parallel_wrapper() -> None:
     assert "blocked nested functions.spawn_agent" in reason
     assert "gpt-5.4-mini" in reason
     assert "delegate_to_claude" in reason
+
+
+def test_pre_tool_use_denies_direct_claude_shell_inside_parallel_wrapper() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "functions.exec_command",
+                        "parameters": {"cmd": "claude -p \"do delegated work\""},
+                    }
+                ]
+            },
+        }
+    )
+    reason = hook_specific(output)["permissionDecisionReason"]
+
+    assert "blocked nested functions.exec_command" in reason
+    assert "direct Claude CLI" in reason
+
+
+def test_pre_tool_use_denies_delegate_shell_inside_parallel_wrapper_without_child_marker() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "functions.exec_command",
+                        "parameters": {
+                            "cmd": (
+                                "skills/codex-with-cc/macos_scripts/delegate_to_claude.sh "
+                                "-TaskFile .codex/codex_with_cc/tasks/20260514/120000000-task.md "
+                                "-WorkflowId wf-a -TaskId task-a -Role researcher -SessionKey wf-a"
+                            )
+                        },
+                    }
+                ]
+            },
+        }
+    )
+    reason = hook_specific(output)["permissionDecisionReason"]
+
+    assert "blocked nested functions.exec_command" in reason
+    assert "CODEX_CLAUDE_CHILD_THREAD=1" in reason
+
+
+def test_pre_tool_use_allows_read_only_delegate_script_inspection_inside_parallel_wrapper() -> None:
+    output = run_hook(
+        {
+            "hook_event_name": "PreToolUse",
+            "tool_name": "multi_tool_use.parallel",
+            "tool_input": {
+                "tool_uses": [
+                    {
+                        "recipient_name": "functions.exec_command",
+                        "parameters": {
+                            "cmd": "sed -n '1,120p' skills/codex-with-cc/macos_scripts/delegate_to_claude.sh"
+                        },
+                    }
+                ]
+            },
+        }
+    )
+
+    assert output == {}
 
 
 def test_pre_tool_use_allows_compliant_spawn_agent_payload() -> None:

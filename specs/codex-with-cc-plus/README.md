@@ -68,10 +68,10 @@ Failure branches:
   handoff schema, first-use Claude Code reliability gate, wait recommendations,
   child-thread refusal protocol, run handoff artifacts, `ccstatus`, run-level
   audit artifacts, workflow rollup audit artifacts, verifier-owned workflow audit
-  artifacts, DS advisory boundary artifacts, hook fallback guidance, and the
-  PageIndex API/socket failure fixture, read-only cc-switch provider discovery,
-  and zero-token DS routing plans in audit packages; tracks P1/P2 automatic DS
-  model invocation follow-ups.
+  artifacts, DS advisory boundary artifacts, hook fallback guidance plus nested
+  parallel shell gate coverage, and the PageIndex API/socket failure fixture,
+  read-only cc-switch provider discovery, and zero-token DS routing plans in
+  audit packages; tracks P1/P2 automatic DS model invocation follow-ups.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

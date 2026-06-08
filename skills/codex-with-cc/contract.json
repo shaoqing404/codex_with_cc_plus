@@ -326,6 +326,53 @@
     ],
     "acceptanceRule": "Audit packages summarize evidence for the main thread. They cannot override deterministic run/workflow verifiers and must keep mayOverrideVerifier=false."
   },
+  "hookGateSchema": {
+    "hookEvents": [
+      "SessionStart",
+      "UserPromptSubmit",
+      "PreToolUse"
+    ],
+    "enforcedToolSurfaces": [
+      "spawn_agent",
+      "Task",
+      "subagent",
+      "agent",
+      "worker",
+      "Bash",
+      "shell_command",
+      "exec_command",
+      "multi_tool_use.parallel nested spawn",
+      "multi_tool_use.parallel nested shell"
+    ],
+    "deniedPatterns": [
+      "direct Claude CLI execution",
+      "main-thread delegate execution without CODEX_CLAUDE_CHILD_THREAD=1",
+      "delegate invocation without -TaskFile",
+      "delegate invocation without -WorkflowId",
+      "delegate invocation without -TaskId",
+      "delegate invocation without -Role",
+      "delegate invocation without -SessionKey",
+      "reviewer delegate invocation without -ReviewForTaskId and -ReviewKind",
+      "legacy inline -Task",
+      "legacy -Mode",
+      "-AllowParallel without -Scope",
+      "delegate --effort override"
+    ],
+    "allowedPatterns": [
+      "read-only inspection of delegate scripts",
+      "explanatory mentions of forbidden legacy arguments",
+      "compliant child-thread delegate command payloads"
+    ],
+    "nonResponsibilities": [
+      "Claude/OpenClaw/MiniMax runtime health checks",
+      "worker liveness supervision",
+      "run acceptance",
+      "workflow acceptance",
+      "review gate acceptance",
+      "DS or worker report trust decisions"
+    ],
+    "acceptanceRule": "Hooks are a semi-hard protocol guardrail only. They reduce accidental bypasses, including nested parallel shell bypasses, but cannot replace ccstatus, ccsupervise, deterministic verifiers, review gates, or main-thread acceptance."
+  },
   "workerRoles": [
     "planner",
     "implementer",
