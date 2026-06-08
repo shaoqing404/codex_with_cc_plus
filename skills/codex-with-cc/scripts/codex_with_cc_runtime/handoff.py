@@ -20,7 +20,7 @@ def refusal_handoff(
     evidence_paths: dict[str, str] | None = None,
     confidence: str = "high",
 ) -> dict[str, Any]:
-    return {
+    result = {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
         "invocationContract": INVOCATION_CONTRACT,
         "handoffType": "preflight",
@@ -39,6 +39,8 @@ def refusal_handoff(
         "mayOverrideVerifier": False,
         "updatedAt": now_iso(),
     }
+    result["childThreadResponseTemplate"] = child_thread_response_template(result)
+    return result
 
 
 def wait_handoff(run_summary: dict[str, Any], *, artifact_root: str, stale_after_seconds: int) -> dict[str, Any]:
@@ -54,12 +56,13 @@ def wait_handoff(run_summary: dict[str, Any], *, artifact_root: str, stale_after
         f"ccsupervise -RunId {run_id} -ArtifactRoot {artifact_root} "
         f"-Wait -TimeoutSeconds {wait_seconds} -StaleAfterSeconds {stale_after_seconds} --json"
     )
-    return {
+    result = {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
         "invocationContract": INVOCATION_CONTRACT,
         "handoffType": "run",
         "delegateStatus": "WAITING",
         "observedState": state,
+        "artifactRoot": artifact_root,
         "acceptanceAllowed": False,
         "mainThreadAction": "wait_with_supervisor",
         "recommendedWaitSeconds": wait_seconds,
@@ -72,6 +75,8 @@ def wait_handoff(run_summary: dict[str, Any], *, artifact_root: str, stale_after
         "mayOverrideVerifier": False,
         "updatedAt": now_iso(),
     }
+    result["childThreadResponseTemplate"] = child_thread_response_template(result, run_summary)
+    return result
 
 
 def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict[str, Any]:
@@ -106,12 +111,13 @@ def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict
         action = "inspect_failure_or_run_runtime_diagnostics"
         acceptance_allowed = False
         next_command = "ccstatus claude --json"
-    return {
+    result = {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
         "invocationContract": INVOCATION_CONTRACT,
         "handoffType": "run",
         "delegateStatus": delegate_status,
         "observedState": state,
+        "artifactRoot": artifact_root,
         "workerClaim": report.get("status") or "",
         "reportValid": bool(report.get("exists")),
         "verifierPassed": verifier.get("status") == "passed",
@@ -134,6 +140,46 @@ def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict
         "mayOverrideVerifier": False,
         "updatedAt": now_iso(),
     }
+    result["childThreadResponseTemplate"] = child_thread_response_template(result, run_summary)
+    return result
+
+
+def child_thread_response_template(handoff: dict[str, Any], run_summary: dict[str, Any] | None = None) -> str:
+    summary = run_summary or {}
+    evidence = handoff.get("evidencePaths") if isinstance(handoff.get("evidencePaths"), dict) else {}
+    run_id = str(summary.get("runId") or "")
+    workflow_id = str(summary.get("workflowId") or "")
+    task_id = str(summary.get("taskId") or "")
+    status_path = str(evidence.get("status") or "")
+    report_path = str(evidence.get("output") or evidence.get("report") or "")
+    trace_path = str(evidence.get("trace") or "")
+    stream_path = str(evidence.get("stream") or "")
+    lines = [
+        f"DelegateStatus: {handoff.get('delegateStatus') or ''}",
+        f"RunId: {run_id}",
+        f"WorkflowId: {workflow_id}",
+        f"TaskId: {task_id}",
+        f"ArtifactRoot: {handoff.get('artifactRoot') or evidence.get('root') or ''}",
+        f"StatusPath: {status_path}",
+        f"ReportPath: {report_path}",
+        f"TracePath: {trace_path}",
+        f"RawStreamPath: {stream_path}",
+        f"ObservedState: {handoff.get('observedState') or ''}",
+        f"Verifier: {'passed' if handoff.get('verifierPassed') else 'not-run-or-failed'}",
+        "Supervisor: passed",
+        f"MainThreadAction: {handoff.get('mainThreadAction') or ''}",
+        f"AcceptanceAllowed: {str(bool(handoff.get('acceptanceAllowed'))).lower()}",
+        f"RecommendedWaitSeconds: {handoff.get('recommendedWaitSeconds') if handoff.get('recommendedWaitSeconds') is not None else 0}",
+        f"NextCommand: {handoff.get('nextCommand') or ''}",
+        f"Confidence: {handoff.get('confidence') or 'medium'}",
+    ]
+    if handoff.get("delegateStatus") == "WAITING":
+        lines.append("Note: no worker report is acceptable yet; return this waiting handoff instead of claiming completion.")
+    elif handoff.get("delegateStatus") == "REFUSED":
+        lines.append("Note: no worker implementation was attempted; report this framework precondition failure to the main thread.")
+    elif handoff.get("acceptanceAllowed") is False:
+        lines.append("Note: acceptanceAllowed=false; do not present delegated work as accepted.")
+    return "\n".join(lines)
 
 
 def _evidence_paths(run_summary: dict[str, Any]) -> dict[str, str]:

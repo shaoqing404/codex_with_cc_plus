@@ -26,6 +26,8 @@ Implemented in this phase:
   `businessAcceptance=blocked`, `workerOutcome=FAIL`, `failureLayer`, and
   machine-readable handoff;
 - child-thread contract updates for `READY`, `REPORT_READY`, and `REFUSED`;
+- run handoff artifacts `handoff_<RunId>.json/.md` from `ccstatus run`, including
+  a `childThreadResponseTemplate`;
 - canonical `audit_<RunId>.json/.md` artifacts through `ccstatus audit`;
 - verifier-owned `verifier_audit_<WorkflowId>.json/.md` artifacts from
   `verify_delegate_workflow`, with gate results, verified runs,
@@ -598,18 +600,24 @@ live run state, workflow gates, and failure-layer explanation.
 
 ### P1: Child-Thread Contract Enforcement
 
-Status: partially implemented through `ccstatus audit`, contract schema updates,
-child-thread refusal protocol, and hook fallback guidance. Additional structured
-child-thread response templates remain open.
+Status: implemented for `ccstatus run` handoff artifacts and response templates;
+additional host-level enforcement remains a future refinement.
 
 Make the child-thread return protocol harder to violate.
 
-Candidate implementation:
+Implemented:
 
-- runner-generated handoff artifact;
-- child-thread response template;
-- tests for `WAITING`, `FAILED`, `REPORT_READY`, and `RUNNING_DEAD_PROCESS`;
-- hook guidance that tells child threads to read contract/spec on abnormal states.
+- `ccstatus run` writes `handoff_<RunId>.json/.md`;
+- handoff artifacts include `childThreadResponseTemplate`;
+- tests cover `WAITING`, `FAILED`, and `RUNNING_DEAD_PROCESS` artifacts, while
+  existing dry-run verified reports cover the `REPORT_READY`/`RUN_VERIFIED`
+  transfer path;
+- hook guidance tells child threads to read contract/spec on abnormal states.
+
+Future refinement:
+
+- make hosts with richer hook APIs require a handoff artifact path in child-thread
+  terminal responses.
 
 ### P1: DS Boundary And Routing
 

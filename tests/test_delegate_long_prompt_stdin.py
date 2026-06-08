@@ -86,6 +86,7 @@ def test_delegate_sends_long_prompt_via_stdin() -> None:
             env={
                 **os.environ,
                 "CODEX_CLAUDE_CHILD_THREAD": "1",
+                "CODEX_WITH_CC_TEST_SKIP_PREFLIGHT": "1",
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
             },

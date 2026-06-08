@@ -281,6 +281,8 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
   workflow rollup audit package
 - `verifier_audit_<WorkflowId>.json/.md` when `verify_delegate_workflow.*` runs
   and records the verifier-owned workflow gate audit
+- `handoff_<RunId>.json/.md` when `ccstatus run -RunId <run-id> --json` is run
+  and records the child-thread/main-thread transfer package
 
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
@@ -313,6 +315,11 @@ spending another worker run.
 `ccstatus audit -RunId <run-id> --json` writes `audit_<RunId>.json/.md` and answers
 whether the main thread can enter review, accept the result, must dispatch missing
 gates, should rerun, or should diagnose an execution-layer failure.
+`ccstatus run -RunId <run-id> --json` writes `handoff_<RunId>.json/.md` with the
+current observed state and a `childThreadResponseTemplate`. A child thread should
+copy that template back to the main thread for `WAITING`, `FAILED`,
+`REPORT_READY`, `STALE`, and `RUNNING_DEAD_PROCESS` states instead of improvising
+completion claims.
 `ccstatus audit -WorkflowId <workflow-id> --json` writes
 `audit_<WorkflowId>.json/.md` and rolls up run audits, failed runs, running states,
 missing gates, final workflow acceptance, and the recommended main-thread action.

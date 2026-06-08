@@ -188,6 +188,37 @@
       "STALE": 0
     }
   },
+  "runHandoffArtifactSchema": {
+    "artifactPattern": "handoff_<RunId>.json",
+    "markdownPattern": "handoff_<RunId>.md",
+    "command": "ccstatus run -RunId <run-id> -ArtifactRoot <artifact-root> --json",
+    "requiredFields": [
+      "handoffArtifactType",
+      "runId",
+      "overall",
+      "acceptanceAllowed",
+      "summary",
+      "handoff",
+      "handoffPath",
+      "handoffMarkdownPath",
+      "mayOverrideValidator",
+      "mayOverrideVerifier"
+    ],
+    "handoffRequiredFields": [
+      "delegateStatus",
+      "observedState",
+      "acceptanceAllowed",
+      "mainThreadAction",
+      "recommendedWaitSeconds",
+      "nextCommand",
+      "confidence",
+      "evidencePaths",
+      "childThreadResponseTemplate",
+      "mayOverrideValidator",
+      "mayOverrideVerifier"
+    ],
+    "acceptanceRule": "Run handoff artifacts are transfer evidence for the Codex main thread and child thread. They cannot replace run audits, workflow audits, deterministic verifiers, review gates, or final acceptance."
+  },
   "runtimeProviderSchema": {
     "ccswitchProvider": {
       "cliNames": [

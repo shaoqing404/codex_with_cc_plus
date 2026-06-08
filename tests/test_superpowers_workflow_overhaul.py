@@ -392,6 +392,7 @@ def test_workflow_verifier_requires_declared_tests_in_done_reports() -> None:
             env={
                 **os.environ,
                 "CODEX_CLAUDE_CHILD_THREAD": "1",
+                "CODEX_WITH_CC_TEST_SKIP_PREFLIGHT": "1",
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
             },
@@ -458,6 +459,7 @@ def test_workflow_verifier_accepts_declared_run_id_placeholder_evidence() -> Non
             env={
                 **os.environ,
                 "CODEX_CLAUDE_CHILD_THREAD": "1",
+                "CODEX_WITH_CC_TEST_SKIP_PREFLIGHT": "1",
                 "PYTHONDONTWRITEBYTECODE": "1",
                 "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
             },

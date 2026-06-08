@@ -27,6 +27,7 @@ from .workflow import normalize_role, safe_task_id, update_workflow_record, work
 
 
 RUNNER_TYPE = "claude_code"
+TEST_SKIP_PREFLIGHT_ENV = "CODEX_WITH_CC_TEST_SKIP_PREFLIGHT"
 TRANSIENT_FAILURE_KEYS = (
     "failureDisposition",
     "failureSummary",
@@ -42,6 +43,11 @@ TRANSIENT_FAILURE_KEYS = (
     "businessFilesChanged",
     "mayOverrideImplementation",
 )
+
+
+def should_skip_preflight_for_tests() -> bool:
+    """Allow fake-worker pytest subprocesses to exercise delegate plumbing."""
+    return os.environ.get(TEST_SKIP_PREFLIGHT_ENV) == "1" and bool(os.environ.get("PYTEST_CURRENT_TEST"))
 
 
 def clear_transient_failure_fields(*objects: dict[str, Any]) -> None:
@@ -571,7 +577,7 @@ def run_delegate(ns: argparse.Namespace) -> int:
     write_json(config_path, config)
     write_json(status_path, status)
 
-    if not ns.dry_run:
+    if not ns.dry_run and not should_skip_preflight_for_tests():
         preflight = build_preflight_status(ns)
         if not preflight.get("dispatchAllowed"):
             complete_preflight_refusal(config_path, status_path, output_path, raw_stream_path, trace_path, config, status, role, preflight)

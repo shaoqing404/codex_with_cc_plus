@@ -164,7 +164,7 @@ def build_run_status(ns: argparse.Namespace) -> dict[str, Any]:
         handoff = wait_handoff(summary, artifact_root=artifact_root, stale_after_seconds=ns.stale_after_seconds)
     else:
         handoff = terminal_handoff(summary, artifact_root=artifact_root)
-    return {
+    report = {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
         "invocationContract": INVOCATION_CONTRACT,
         "command": "ccstatus run",
@@ -176,6 +176,57 @@ def build_run_status(ns: argparse.Namespace) -> dict[str, Any]:
         "handoff": handoff,
         "updatedAt": now_iso(),
     }
+    write_run_handoff_artifacts(report, ns.artifact_root)
+    return report
+
+
+def write_run_handoff_artifacts(report: dict[str, Any], artifact_root_value: str | None = None) -> tuple[Path, Path]:
+    run_id = str(report.get("runId") or "")
+    if not run_id:
+        raise DelegateError("Cannot write run handoff artifacts without runId.")
+    root = resolve_artifact_root(artifact_root_value, run_id=run_id)
+    json_path = root / f"handoff_{run_id}.json"
+    md_path = root / f"handoff_{run_id}.md"
+    report["handoffPath"] = str(json_path)
+    report["handoffMarkdownPath"] = str(md_path)
+    package = {
+        **report,
+        "handoffArtifactType": "codex-with-cc-run-handoff",
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+    }
+    handoff = report.get("handoff") if isinstance(report.get("handoff"), dict) else {}
+    evidence_paths = handoff.get("evidencePaths") if isinstance(handoff.get("evidencePaths"), dict) else {}
+    write_json(json_path, package)
+    write_text(
+        md_path,
+        "\n".join(
+            [
+                "# Codex With CC Run Handoff",
+                "",
+                f"RunId: {run_id}",
+                f"WorkflowId: {(report.get('summary') or {}).get('workflowId') if isinstance(report.get('summary'), dict) else ''}",
+                f"DelegateStatus: {handoff.get('delegateStatus') or ''}",
+                f"ObservedState: {handoff.get('observedState') or ''}",
+                f"AcceptanceAllowed: {str(bool(handoff.get('acceptanceAllowed'))).lower()}",
+                f"MainThreadAction: {handoff.get('mainThreadAction') or ''}",
+                f"RecommendedWaitSeconds: {handoff.get('recommendedWaitSeconds') if handoff.get('recommendedWaitSeconds') is not None else 0}",
+                f"NextCommand: {handoff.get('nextCommand') or ''}",
+                f"mayOverrideVerifier: {str(handoff.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## Child Thread Response Template",
+                "",
+                str(handoff.get("childThreadResponseTemplate") or ""),
+                "",
+                "## Evidence Paths",
+                "",
+                "\n".join(f"- {key}: {value}" for key, value in evidence_paths.items()) or "- none",
+                "",
+            ]
+        )
+        + "\n",
+    )
+    return json_path, md_path
 
 
 def _path_from_meta(summary: dict[str, Any], key: str) -> Path | None:

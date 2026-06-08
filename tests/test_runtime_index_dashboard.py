@@ -587,6 +587,18 @@ def test_contract_declares_ds_routing_schema_boundary() -> None:
     assert "cannot override" in ds_schema["acceptanceRule"]
 
 
+def test_contract_declares_run_handoff_artifact_schema() -> None:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    handoff_schema = contract["runHandoffArtifactSchema"]
+
+    assert handoff_schema["artifactPattern"] == "handoff_<RunId>.json"
+    assert handoff_schema["markdownPattern"] == "handoff_<RunId>.md"
+    assert "ccstatus run" in handoff_schema["command"]
+    assert "childThreadResponseTemplate" in handoff_schema["handoffRequiredFields"]
+    assert "mayOverrideVerifier" in handoff_schema["requiredFields"]
+    assert "cannot replace run audits" in handoff_schema["acceptanceRule"]
+
+
 def test_ccstatus_claude_blocks_when_local_backend_is_unreachable_and_redacts_token() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_status_") as tmp:
         home = Path(tmp) / "home"
@@ -633,6 +645,40 @@ def test_ccstatus_run_returns_wait_handoff_for_active_run() -> None:
         assert payload["handoff"]["recommendedWaitSeconds"] == 60
         assert "ccsupervise" in payload["handoff"]["nextCommand"]
         assert payload["acceptanceAllowed"] is False
+        assert Path(payload["handoffPath"]).exists()
+        assert Path(payload["handoffMarkdownPath"]).exists()
+        handoff_package = json.loads(Path(payload["handoffPath"]).read_text(encoding="utf-8"))
+        assert handoff_package["handoffArtifactType"] == "codex-with-cc-run-handoff"
+        assert handoff_package["handoff"]["delegateStatus"] == "WAITING"
+        assert "DelegateStatus: WAITING" in handoff_package["handoff"]["childThreadResponseTemplate"]
+        assert "no worker report is acceptable yet" in handoff_package["handoff"]["childThreadResponseTemplate"]
+        assert "Child Thread Response Template" in Path(payload["handoffMarkdownPath"]).read_text(encoding="utf-8")
+
+
+def test_ccstatus_run_writes_failed_handoff_for_dead_running_process() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_dead_handoff_") as tmp:
+        artifact_root = Path(tmp) / "artifacts"
+        run_id = write_running_fixture(artifact_root)
+        status_path = artifact_root / f"status_{run_id}.json"
+        status_json = json.loads(status_path.read_text(encoding="utf-8"))
+        status_json["pid"] = 99999999
+        status_json["attempts"][-1]["pid"] = 99999999
+        status_path.write_text(json.dumps(status_json), encoding="utf-8")
+
+        status = run_script(CCSTATUS, "run", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
+        assert status.returncode == 0, status.stdout + status.stderr
+        payload = json.loads(status.stdout)
+        handoff = payload["handoff"]
+        assert payload["overall"] == "terminal"
+        assert handoff["delegateStatus"] == "FAILED"
+        assert handoff["observedState"] == "RUNNING_DEAD_PROCESS"
+        assert handoff["acceptanceAllowed"] is False
+        assert handoff["mainThreadAction"] == "rerun_or_trigger_failure_forensics"
+        assert Path(payload["handoffPath"]).exists()
+        handoff_package = json.loads(Path(payload["handoffPath"]).read_text(encoding="utf-8"))
+        assert handoff_package["handoff"]["observedState"] == "RUNNING_DEAD_PROCESS"
+        assert "AcceptanceAllowed: false" in handoff_package["handoff"]["childThreadResponseTemplate"]
+        assert "do not present delegated work as accepted" in handoff_package["handoff"]["childThreadResponseTemplate"]
 
 
 def test_ccstatus_audit_writes_canonical_package_for_reviewable_run() -> None:
@@ -807,6 +853,12 @@ def test_pageindex_socket_failure_fixture_is_execution_layer_failure_not_accepta
         assert handoff["businessFilesChanged"] is False
         assert handoff["safeToRetrySameTaskFile"] is True
         assert handoff["mayOverrideImplementation"] is False
+        assert Path(run_payload["handoffPath"]).exists()
+        failed_handoff = json.loads(Path(run_payload["handoffPath"]).read_text(encoding="utf-8"))
+        assert failed_handoff["handoff"]["delegateStatus"] == "FAILED"
+        assert failed_handoff["handoff"]["failureLayer"] == "claude_api_connection"
+        assert "DelegateStatus: FAILED" in failed_handoff["handoff"]["childThreadResponseTemplate"]
+        assert "AcceptanceAllowed: false" in failed_handoff["handoff"]["childThreadResponseTemplate"]
 
         audit = run_script(CCSTATUS, "audit", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
         assert audit.returncode == 0, audit.stdout + audit.stderr
