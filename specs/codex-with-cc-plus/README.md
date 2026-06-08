@@ -67,10 +67,10 @@ Failure branches:
 - `0007-main-thread-handoff-audit-protocol.md`: implemented P0 main-thread
   handoff schema, first-use Claude Code reliability gate, wait recommendations,
   child-thread refusal protocol, `ccstatus`, run-level audit artifacts, and
-  workflow rollup audit artifacts, plus DS advisory boundary artifacts, hook
-  fallback guidance, and the PageIndex API/socket failure fixture; tracks P1/P2
-  automatic DS routing, verifier-owned audit generation, and provider adapter
-  follow-ups.
+  workflow rollup audit artifacts, plus verifier-owned workflow audit artifacts,
+  DS advisory boundary artifacts, hook fallback guidance, and the PageIndex
+  API/socket failure fixture; tracks P1/P2 automatic DS routing and provider
+  adapter follow-ups.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

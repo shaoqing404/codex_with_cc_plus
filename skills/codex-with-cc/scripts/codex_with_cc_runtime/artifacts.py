@@ -6,8 +6,8 @@ import re
 from pathlib import Path
 from typing import Any, Iterable
 
-from .common import ARTIFACT_SCHEMA_VERSION, CHILD_MARKER_NAME, INVOCATION_CONTRACT, REPORT_STATUS_VALUES, WORKER_ROLES, DelegateError, boolish, same_path
-from .io_utils import load_json
+from .common import ARTIFACT_SCHEMA_VERSION, CHILD_MARKER_NAME, INVOCATION_CONTRACT, REPORT_STATUS_VALUES, WORKER_ROLES, DelegateError, boolish, now_iso, same_path
+from .io_utils import load_json, write_json, write_text
 from .locks import pid_alive
 from .paths import project_artifact_root, user_artifact_root
 from .reports import parse_report_final_result, parse_report_role, parse_report_status, path_has_required_report_headings, report_section
@@ -247,27 +247,220 @@ def run_verify_artifacts(ns: argparse.Namespace) -> int:
     return 0
 
 
+def workflow_verifier_audit_paths(root: Path, workflow_id: str) -> tuple[Path, Path]:
+    safe_id = workflow_path(root, workflow_id).stem.removeprefix("workflow_")
+    return root / f"verifier_audit_{safe_id}.json", root / f"verifier_audit_{safe_id}.md"
+
+
+def main_thread_action_for_failed_gate(gate_name: str) -> str:
+    return {
+        "workflow_artifact": "inspect_workflow_artifact",
+        "run_artifacts": "inspect_missing_or_invalid_run_artifacts",
+        "implementer_gate": "inspect_failed_runs_or_trigger_forensics",
+        "review_gates": "dispatch_missing_review_gates",
+        "final_verifier_gate": "dispatch_final_verifier",
+        "declared_tests": "rerun_or_correct_verification_evidence",
+        "parallel_scope": "resolve_parallel_scope_conflict",
+    }.get(gate_name, "inspect_workflow_verifier_failure")
+
+
+def build_workflow_verifier_audit(
+    *,
+    root: Path,
+    workflow_id: str,
+    workflow_file: Path,
+    workflow: dict[str, Any],
+    verified_runs: dict[str, dict[str, Any]],
+    gate_results: list[dict[str, Any]],
+    verifier_passed: bool,
+    error: str = "",
+) -> dict[str, Any]:
+    failed_gate = next((item for item in gate_results if not item.get("passed")), None)
+    final_acceptance = workflow.get("finalAcceptance") if isinstance(workflow.get("finalAcceptance"), dict) else {}
+    acceptance_allowed = bool(verifier_passed and final_acceptance.get("status") == "accepted")
+    main_action = "accept_or_commit" if acceptance_allowed else main_thread_action_for_failed_gate(str((failed_gate or {}).get("gate") or "workflow_verifier"))
+    run_summaries = []
+    for run_id, record in sorted(verified_runs.items()):
+        config = record.get("config") if isinstance(record.get("config"), dict) else {}
+        status = record.get("status") if isinstance(record.get("status"), dict) else {}
+        run_summaries.append(
+            {
+                "runId": run_id,
+                "taskId": str(config.get("taskId") or status.get("taskId") or ""),
+                "role": str(config.get("role") or status.get("role") or ""),
+                "runStatus": str(status.get("status") or ""),
+                "workerOutcome": str(status.get("workerOutcome") or config.get("workerOutcome") or ""),
+                "failureLayer": str(status.get("failureLayer") or config.get("failureLayer") or ""),
+                "businessAcceptance": str(status.get("businessAcceptance") or config.get("businessAcceptance") or ""),
+                "outputPath": str(config.get("outputPath") or ""),
+                "statusPath": str(config.get("statusPath") or status.get("statusPath") or ""),
+                "configPath": str(config.get("configPath") or ""),
+            }
+        )
+    return {
+        "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+        "invocationContract": INVOCATION_CONTRACT,
+        "command": "verify_delegate_workflow",
+        "auditType": "codex-with-cc-workflow-verifier-audit",
+        "workflowId": workflow_id,
+        "artifactRoot": str(root),
+        "workflowPath": str(workflow_file),
+        "verifierPassed": verifier_passed,
+        "acceptanceAllowed": acceptance_allowed,
+        "workflowFinalAcceptance": final_acceptance,
+        "gateResults": gate_results,
+        "failedGate": failed_gate or {},
+        "missingGates": [str(item.get("gate")) for item in gate_results if not item.get("passed")],
+        "verifiedRunCount": len(verified_runs),
+        "verifiedRuns": run_summaries,
+        "mainThreadAction": main_action,
+        "nextCommand": "accept_or_commit" if acceptance_allowed else f"ccstatus audit -WorkflowId {workflow_id} -ArtifactRoot {root} --json",
+        "confidence": "high" if gate_results else "medium",
+        "error": error,
+        "evidencePaths": {
+            "workflow": str(workflow_file),
+        },
+        "provenance": {
+            "sources": ["workflow", "verified_run_artifacts", "workflow_verifier_gates"],
+            "generatedReasoning": ["acceptanceAllowed", "mainThreadAction", "missingGates"],
+        },
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "updatedAt": now_iso(),
+    }
+
+
+def write_workflow_verifier_audit(audit: dict[str, Any]) -> tuple[Path, Path]:
+    root = Path(str(audit["artifactRoot"])).resolve()
+    workflow_id = str(audit["workflowId"])
+    json_path, md_path = workflow_verifier_audit_paths(root, workflow_id)
+    audit["auditPath"] = str(json_path)
+    audit["auditMarkdownPath"] = str(md_path)
+    audit.setdefault("evidencePaths", {})["verifierAudit"] = str(json_path)
+    audit["evidencePaths"]["verifierAuditMarkdown"] = str(md_path)
+    write_json(json_path, audit)
+    write_text(
+        md_path,
+        "\n".join(
+            [
+                "# Codex With CC Workflow Verifier Audit",
+                "",
+                f"WorkflowId: {workflow_id}",
+                f"VerifierPassed: {str(audit.get('verifierPassed')).lower()}",
+                f"AcceptanceAllowed: {str(audit.get('acceptanceAllowed')).lower()}",
+                f"MainThreadAction: {audit.get('mainThreadAction')}",
+                f"FailedGate: {(audit.get('failedGate') or {}).get('gate') or '-'}",
+                f"mayOverrideVerifier: {str(audit.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## Gate Results",
+                "",
+                "\n".join(
+                    f"- {item.get('gate')}: {'passed' if item.get('passed') else 'failed'}"
+                    + (f" - {item.get('message')}" if item.get("message") else "")
+                    for item in audit.get("gateResults") or []
+                )
+                or "- none",
+                "",
+                "## Verified Runs",
+                "",
+                "\n".join(
+                    f"- {item.get('runId')}: role={item.get('role') or '-'} status={item.get('runStatus') or '-'} failureLayer={item.get('failureLayer') or '-'}"
+                    for item in audit.get("verifiedRuns") or []
+                )
+                or "- none",
+                "",
+                "## Evidence Paths",
+                "",
+                "\n".join(f"- {key}: {value}" for key, value in (audit.get("evidencePaths") or {}).items()),
+                "",
+            ]
+        )
+        + "\n",
+    )
+    return json_path, md_path
+
+
+def _gate_pass(gate_results: list[dict[str, Any]], gate: str, message: str = "") -> None:
+    gate_results.append({"gate": gate, "passed": True, "message": message})
+
+
+def _gate_fail(gate_results: list[dict[str, Any]], gate: str, message: str) -> None:
+    gate_results.append({"gate": gate, "passed": False, "message": message})
+
+
 def run_verify_workflow(ns: argparse.Namespace) -> int:
     root = resolve_artifact_root(ns.artifact_root, workflow_id=ns.workflow_id)
     path = workflow_path(root, ns.workflow_id)
     if not path.exists():
         raise DelegateError(f"Missing workflow artifact: {path}")
     workflow = load_json(path)
-    if int(workflow.get("artifactSchema", -1)) != ARTIFACT_SCHEMA_VERSION:
-        raise DelegateError(f"Unexpected workflow artifact schema. Expected {ARTIFACT_SCHEMA_VERSION}.")
-    if workflow.get("invocationContract") != INVOCATION_CONTRACT:
-        raise DelegateError(f"Unexpected workflow invocation contract. Expected '{INVOCATION_CONTRACT}'.")
-    if workflow.get("workflowId") != ns.workflow_id:
-        raise DelegateError("Workflow artifact workflowId mismatch.")
     verified_runs: dict[str, dict[str, Any]] = {}
-    for run_id in (workflow.get("runs") or {}).keys():
-        verified_runs[str(run_id)] = verify_artifacts(str(run_id), str(root))
-    enforce_no_failed_implementers_before_review_gates(workflow)
-    enforce_workflow_review_gates(workflow)
-    enforce_workflow_final_verifier_gate(workflow)
-    enforce_declared_tests_are_reported(workflow, verified_runs)
-    enforce_parallel_implementer_scope(workflow, verified_runs)
+    gate_results: list[dict[str, Any]] = []
+
+    def write_failure(exc: DelegateError, gate: str) -> None:
+        if not gate_results or gate_results[-1].get("gate") != gate or gate_results[-1].get("passed"):
+            _gate_fail(gate_results, gate, str(exc))
+        audit = build_workflow_verifier_audit(
+            root=root,
+            workflow_id=ns.workflow_id,
+            workflow_file=path,
+            workflow=workflow if isinstance(workflow, dict) else {},
+            verified_runs=verified_runs,
+            gate_results=gate_results,
+            verifier_passed=False,
+            error=str(exc),
+        )
+        write_workflow_verifier_audit(audit)
+
+    try:
+        if int(workflow.get("artifactSchema", -1)) != ARTIFACT_SCHEMA_VERSION:
+            raise DelegateError(f"Unexpected workflow artifact schema. Expected {ARTIFACT_SCHEMA_VERSION}.")
+        if workflow.get("invocationContract") != INVOCATION_CONTRACT:
+            raise DelegateError(f"Unexpected workflow invocation contract. Expected '{INVOCATION_CONTRACT}'.")
+        if workflow.get("workflowId") != ns.workflow_id:
+            raise DelegateError("Workflow artifact workflowId mismatch.")
+        _gate_pass(gate_results, "workflow_artifact", "workflow artifact schema and identity passed")
+
+        try:
+            for run_id in (workflow.get("runs") or {}).keys():
+                verified_runs[str(run_id)] = verify_artifacts(str(run_id), str(root))
+        except DelegateError as exc:
+            _gate_fail(gate_results, "run_artifacts", str(exc))
+            raise
+        _gate_pass(gate_results, "run_artifacts", f"verified {len(verified_runs)} run artifact set(s)")
+
+        gate_steps = [
+            ("implementer_gate", lambda: enforce_no_failed_implementers_before_review_gates(workflow)),
+            ("review_gates", lambda: enforce_workflow_review_gates(workflow)),
+            ("final_verifier_gate", lambda: enforce_workflow_final_verifier_gate(workflow)),
+            ("declared_tests", lambda: enforce_declared_tests_are_reported(workflow, verified_runs)),
+            ("parallel_scope", lambda: enforce_parallel_implementer_scope(workflow, verified_runs)),
+        ]
+        for gate, func in gate_steps:
+            try:
+                func()
+            except DelegateError as exc:
+                _gate_fail(gate_results, gate, str(exc))
+                raise
+            _gate_pass(gate_results, gate)
+    except DelegateError as exc:
+        failed_gate = str((gate_results[-1] if gate_results else {}).get("gate") or "workflow_artifact")
+        write_failure(exc, failed_gate)
+        raise
+
+    audit = build_workflow_verifier_audit(
+        root=root,
+        workflow_id=ns.workflow_id,
+        workflow_file=path,
+        workflow=workflow,
+        verified_runs=verified_runs,
+        gate_results=gate_results,
+        verifier_passed=True,
+    )
+    audit_path, audit_md_path = write_workflow_verifier_audit(audit)
     print(f"Workflow verification passed for WorkflowId: {ns.workflow_id}")
+    print(f"VerifierAudit: {audit_path}")
+    print(f"VerifierAuditMarkdown: {audit_md_path}")
     return 0
 
 

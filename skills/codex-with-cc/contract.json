@@ -193,8 +193,11 @@
     "markdownPattern": "audit_<RunId>.md",
     "workflowArtifactPattern": "audit_<WorkflowId>.json",
     "workflowMarkdownPattern": "audit_<WorkflowId>.md",
+    "workflowVerifierArtifactPattern": "verifier_audit_<WorkflowId>.json",
+    "workflowVerifierMarkdownPattern": "verifier_audit_<WorkflowId>.md",
     "command": "ccstatus audit -RunId <run-id> -ArtifactRoot <artifact-root> --json",
     "workflowCommand": "ccstatus audit -WorkflowId <workflow-id> -ArtifactRoot <artifact-root> --json",
+    "workflowVerifierCommand": "verify_delegate_workflow -WorkflowId <workflow-id> -ArtifactRoot <artifact-root>",
     "requiredFields": [
       "auditType",
       "runId",
@@ -210,6 +213,20 @@
       "acceptanceAllowed",
       "failureLayer",
       "executionLayerFailure",
+      "mainThreadAction",
+      "evidencePaths",
+      "mayOverrideVerifier"
+    ],
+    "workflowVerifierRequiredFields": [
+      "auditType",
+      "workflowId",
+      "verifierPassed",
+      "acceptanceAllowed",
+      "workflowFinalAcceptance",
+      "gateResults",
+      "failedGate",
+      "missingGates",
+      "verifiedRuns",
       "mainThreadAction",
       "evidencePaths",
       "mayOverrideVerifier"

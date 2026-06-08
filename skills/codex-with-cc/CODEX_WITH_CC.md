@@ -279,6 +279,8 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
   run audit package
 - `audit_<WorkflowId>.json/.md` when `ccstatus audit -WorkflowId` is run for a
   workflow rollup audit package
+- `verifier_audit_<WorkflowId>.json/.md` when `verify_delegate_workflow.*` runs
+  and records the verifier-owned workflow gate audit
 
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
@@ -309,6 +311,10 @@ gates, should rerun, or should diagnose an execution-layer failure.
 `ccstatus audit -WorkflowId <workflow-id> --json` writes
 `audit_<WorkflowId>.json/.md` and rolls up run audits, failed runs, running states,
 missing gates, final workflow acceptance, and the recommended main-thread action.
+`verify_delegate_workflow.*` writes `verifier_audit_<WorkflowId>.json/.md` with
+deterministic gate results, verified runs, failed gate details, and
+`acceptanceAllowed`; this is verifier-owned evidence, not a replacement for
+`ccstatus` rollups.
 Audit packages must keep `mayOverrideVerifier=false`.
 
 Use `ccindex.* build|list|show|export` for machine-level workflow indexing across

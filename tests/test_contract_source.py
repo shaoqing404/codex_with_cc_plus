@@ -122,6 +122,11 @@ def test_contract_json_is_single_source_for_runtime_constants() -> None:
     assert contract["orchestrationRoles"]["report-worker"]["defaultModel"] == "deepseek-v4-flash"
     assert contract["orchestrationRoles"]["forensic-analyst"]["defaultModel"] == "deepseek-v4-pro"
     assert contract["orchestrationRoles"]["forensic-analyst"]["mayOverrideVerifier"] is False
+    assert contract["auditPackageSchema"]["workflowVerifierArtifactPattern"] == "verifier_audit_<WorkflowId>.json"
+    assert contract["auditPackageSchema"]["workflowVerifierMarkdownPattern"] == "verifier_audit_<WorkflowId>.md"
+    assert "verify_delegate_workflow" in contract["auditPackageSchema"]["workflowVerifierCommand"]
+    assert "gateResults" in contract["auditPackageSchema"]["workflowVerifierRequiredFields"]
+    assert "mayOverrideVerifier" in contract["auditPackageSchema"]["workflowVerifierRequiredFields"]
     assert contract["workflowStateMachine"] == [
         "INTAKE",
         "SPEC_DRAFTED",

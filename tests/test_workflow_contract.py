@@ -296,6 +296,25 @@ def test_delegate_dry_run_writes_workflow_artifacts_and_verifies_them() -> None:
 
         assert verify_run.returncode == 0, verify_run.stdout + verify_run.stderr
         assert verify_workflow.returncode == 0, verify_workflow.stdout + verify_workflow.stderr
+        verifier_audit_path = artifact_root / "verifier_audit_wf-contract.json"
+        verifier_audit_md_path = artifact_root / "verifier_audit_wf-contract.md"
+        assert verifier_audit_path.exists()
+        assert verifier_audit_md_path.exists()
+        verifier_audit = json.loads(verifier_audit_path.read_text(encoding="utf-8"))
+        assert verifier_audit["auditType"] == "codex-with-cc-workflow-verifier-audit"
+        assert verifier_audit["verifierPassed"] is True
+        assert verifier_audit["acceptanceAllowed"] is True
+        assert verifier_audit["mainThreadAction"] == "accept_or_commit"
+        assert verifier_audit["mayOverrideVerifier"] is False
+        assert {item["gate"] for item in verifier_audit["gateResults"]} >= {
+            "workflow_artifact",
+            "run_artifacts",
+            "review_gates",
+            "final_verifier_gate",
+            "declared_tests",
+            "parallel_scope",
+        }
+        assert "VerifierAudit:" in verify_workflow.stdout
 
 
 def test_verify_workflow_prioritizes_failed_implementer_before_missing_reviews() -> None:
@@ -311,6 +330,17 @@ def test_verify_workflow_prioritizes_failed_implementer_before_missing_reviews()
         assert "Workflow implementer gate failed" in verify_workflow.stderr
         assert "review gates are not applicable yet" in verify_workflow.stderr
         assert "missing spec" not in verify_workflow.stderr
+        verifier_audit_path = artifact_root / f"verifier_audit_{workflow_id}.json"
+        verifier_audit_md_path = artifact_root / f"verifier_audit_{workflow_id}.md"
+        assert verifier_audit_path.exists()
+        assert verifier_audit_md_path.exists()
+        verifier_audit = json.loads(verifier_audit_path.read_text(encoding="utf-8"))
+        assert verifier_audit["auditType"] == "codex-with-cc-workflow-verifier-audit"
+        assert verifier_audit["verifierPassed"] is False
+        assert verifier_audit["acceptanceAllowed"] is False
+        assert verifier_audit["failedGate"]["gate"] == "implementer_gate"
+        assert verifier_audit["mainThreadAction"] == "inspect_failed_runs_or_trigger_forensics"
+        assert verifier_audit["mayOverrideVerifier"] is False
 
 
 def test_hook_gate_requires_workflow_payload_fields_and_write_scope_for_parallel() -> None:

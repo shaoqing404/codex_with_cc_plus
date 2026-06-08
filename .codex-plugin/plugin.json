@@ -1,6 +1,6 @@
 {
   "name": "codex-with-cc-plus",
-  "version": "1.0.8+codex.20260608175900",
+  "version": "1.0.8+codex.20260608212300",
   "description": "A Codex plugin for delegated Claude Code execution, OpenAI-compatible report workers, and artifact-grounded run supervision.",
   "author": {
     "name": "xdd666t"

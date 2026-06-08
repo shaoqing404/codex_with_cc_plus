@@ -27,6 +27,9 @@ Implemented in this phase:
   machine-readable handoff;
 - child-thread contract updates for `READY`, `REPORT_READY`, and `REFUSED`;
 - canonical `audit_<RunId>.json/.md` artifacts through `ccstatus audit`;
+- verifier-owned `verifier_audit_<WorkflowId>.json/.md` artifacts from
+  `verify_delegate_workflow`, with gate results, verified runs,
+  `acceptanceAllowed`, and `mayOverrideVerifier=false`;
 - tests for unreachable local backend, active-run wait guidance, preflight
   refusal artifacts, and wrapper forwarding;
 - PageIndex-style Claude API/socket failure fixture that preserves valid
@@ -38,8 +41,6 @@ Implemented in this phase:
 
 Not yet implemented:
 
-- workflow-verifier-owned acceptance audit generation remains separate from the
-  `ccstatus audit -WorkflowId` rollup;
 - full provider adapter support for cc-switch desktop state.
 
 ## Role Personas
@@ -560,7 +561,8 @@ All thresholds must be configurable.
 ### P0: Audit Package
 
 Status: implemented for individual runs and workflow rollups through
-`ccstatus audit`.
+`ccstatus audit`, and for verifier-owned workflow acceptance evidence through
+`verify_delegate_workflow`.
 
 Generate a compact audit package after worker completion or failure.
 
@@ -573,6 +575,13 @@ The audit package must answer:
 - were changed files inside scope?
 - is this a business failure or an execution-layer failure?
 - what should the main thread do next?
+
+`verify_delegate_workflow` additionally writes `verifier_audit_<WorkflowId>.json`
+and `.md`. This package records deterministic workflow gate results, verified
+runs, the failed gate when present, `acceptanceAllowed`, and
+`mayOverrideVerifier=false`. It is the verifier's own audit evidence, while
+`ccstatus audit -WorkflowId` remains the broader main-thread rollup over workflow
+and run states.
 
 ### P0: `ccstatus`
 
