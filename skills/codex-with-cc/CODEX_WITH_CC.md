@@ -143,6 +143,12 @@ Main-thread handling rules:
   support.
 
 Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain validation failures or draft a corrected TaskFile, but only as an authoring assistant. It must not edit business files, must not run shell tests, must not dispatch implementation work, and its report must state `mayOverrideValidator=false`. The deterministic `validate_delegate_task.*` result remains the only hard gate for whether a TaskFile is dispatchable.
+OpenAI-compatible report workers are advisory DS helpers. Their config, status,
+stream, and report artifacts must record `advisoryOnly=true`,
+`mayOverrideValidator=false`, `mayOverrideVerifier=false`,
+`canEditBusinessFiles=false`, `canRunShellTests=false`,
+`canDispatchWorkerRuns=false`, and `canAcceptWorkflowResults=false`. If the model
+omits these lines, the runner injects them before writing the report artifact.
 
 DeepSeek model boundaries:
 

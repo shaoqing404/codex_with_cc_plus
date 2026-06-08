@@ -22,9 +22,41 @@
     "runnerType": "openai_compatible_report",
     "defaultModel": "deepseek-v4-flash",
     "mayOverrideValidator": false,
+    "mayOverrideVerifier": false,
     "canEditBusinessFiles": false,
     "canRunShellTests": false,
+    "canDispatchWorkerRuns": false,
+    "canAcceptWorkflowResults": false,
     "requiresLocalValidationAfterAssist": true
+  },
+  "dsAdvisoryBoundary": {
+    "runnerType": "openai_compatible_report",
+    "advisoryOnly": true,
+    "mayOverrideValidator": false,
+    "mayOverrideVerifier": false,
+    "canEditBusinessFiles": false,
+    "canRunShellTests": false,
+    "canDispatchWorkerRuns": false,
+    "canAcceptWorkflowResults": false,
+    "artifactFields": [
+      "advisoryBoundary",
+      "reportOnly",
+      "mayOverrideValidator",
+      "mayOverrideVerifier",
+      "canEditBusinessFiles",
+      "canRunShellTests",
+      "canDispatchWorkerRuns",
+      "canAcceptWorkflowResults"
+    ],
+    "reportLines": [
+      "advisoryOnly=true",
+      "mayOverrideValidator=false",
+      "mayOverrideVerifier=false",
+      "canEditBusinessFiles=false",
+      "canRunShellTests=false",
+      "canDispatchWorkerRuns=false",
+      "canAcceptWorkflowResults=false"
+    ]
   },
   "orchestrationRoles": {
     "dispatch-planner": {

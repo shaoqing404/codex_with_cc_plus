@@ -107,7 +107,14 @@ def test_contract_json_is_single_source_for_runtime_constants() -> None:
     assert contract["taskFileAssist"]["runnerType"] == "openai_compatible_report"
     assert contract["taskFileAssist"]["defaultModel"] == "deepseek-v4-flash"
     assert contract["taskFileAssist"]["mayOverrideValidator"] is False
+    assert contract["taskFileAssist"]["mayOverrideVerifier"] is False
+    assert contract["taskFileAssist"]["canDispatchWorkerRuns"] is False
+    assert contract["taskFileAssist"]["canAcceptWorkflowResults"] is False
     assert contract["taskFileAssist"]["requiresLocalValidationAfterAssist"] is True
+    assert contract["dsAdvisoryBoundary"]["advisoryOnly"] is True
+    assert contract["dsAdvisoryBoundary"]["mayOverrideValidator"] is False
+    assert contract["dsAdvisoryBoundary"]["mayOverrideVerifier"] is False
+    assert "canAcceptWorkflowResults=false" in contract["dsAdvisoryBoundary"]["reportLines"]
     assert contract["orchestrationRoles"]["dispatch-planner"]["defaultModel"] == "deepseek-v4-pro"
     assert contract["orchestrationRoles"]["dispatch-planner"]["mayOverrideValidator"] is False
     assert contract["orchestrationRoles"]["run-supervisor"]["runnerType"] == "codex_child_thread"

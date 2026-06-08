@@ -33,7 +33,6 @@ Not yet implemented:
 
 - workflow-verifier-owned acceptance audit generation remains separate from the
   `ccstatus audit -WorkflowId` rollup;
-- automatic post-execution DS routing;
 - PageIndex socket/API failure fixture;
 - full provider adapter support for cc-switch desktop state.
 
@@ -592,6 +591,9 @@ Candidate implementation:
 
 ### P1: DS Boundary And Routing
 
+Status: boundary implemented in `delegate_to_openai_compatible_report`; automatic
+post-execution routing remains a future refinement.
+
 Standardize DS as an advisory friction reducer.
 
 Required behavior:
@@ -600,6 +602,16 @@ Required behavior:
 - post-execution DS outputs `mayOverrideVerifier=false`;
 - DS may produce explanations, TaskFile critiques, and forensic summaries;
 - DS may not dispatch, implement, edit business files, or accept workflow results.
+
+Implemented artifact boundary:
+
+- config/status/stream include `advisoryBoundary`;
+- config/status include `reportOnly=true`, `mayOverrideValidator=false`,
+  `mayOverrideVerifier=false`, `canEditBusinessFiles=false`,
+  `canRunShellTests=false`, `canDispatchWorkerRuns=false`, and
+  `canAcceptWorkflowResults=false`;
+- report artifacts must include the matching boundary lines in `Findings`; the
+  runner injects them when the model omits them.
 
 ### P2: PageIndex Failure Fixture
 

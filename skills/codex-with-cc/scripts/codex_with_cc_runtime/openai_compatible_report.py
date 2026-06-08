@@ -21,6 +21,24 @@ from .task_contract import validate_task_file_contract
 from .workflow import normalize_role, safe_task_id, update_workflow_record
 
 RUNNER_TYPE = "openai_compatible_report"
+DS_ADVISORY_BOUNDARY = {
+    "advisoryOnly": True,
+    "mayOverrideValidator": False,
+    "mayOverrideVerifier": False,
+    "canEditBusinessFiles": False,
+    "canRunShellTests": False,
+    "canDispatchWorkerRuns": False,
+    "canAcceptWorkflowResults": False,
+}
+BOUNDARY_REPORT_LINES = (
+    "- advisoryOnly=true",
+    "- mayOverrideValidator=false",
+    "- mayOverrideVerifier=false",
+    "- canEditBusinessFiles=false",
+    "- canRunShellTests=false",
+    "- canDispatchWorkerRuns=false",
+    "- canAcceptWorkflowResults=false",
+)
 
 
 def _load_dotenv_values(dotenv_path: Path) -> dict[str, str]:
@@ -93,6 +111,9 @@ def _build_report_prompt(
         "Required report headings:\n"
         f"{headings}\n\n"
         "Allowed status values: DONE, DONE_WITH_CONCERNS, NEEDS_CONTEXT, BLOCKED, FAIL\n\n"
+        "Your Findings section must include these exact boundary lines:\n"
+        + "\n".join(BOUNDARY_REPORT_LINES)
+        + "\n\n"
         "Task file content:\n"
         f"{task_text.strip()}\n"
     )
@@ -116,6 +137,7 @@ Verification
 
 Findings
 - {message}
+{chr(10).join(BOUNDARY_REPORT_LINES)}
 
 Final Result
 FAIL
@@ -226,6 +248,16 @@ def _normalize_model_report_text(text: str) -> tuple[str, bool]:
     return normalized, changed
 
 
+def _ensure_advisory_boundary_lines(text: str) -> tuple[str, bool]:
+    missing = [line for line in BOUNDARY_REPORT_LINES if line not in text]
+    if not missing:
+        return text, False
+    marker = "\nFinal Result\n"
+    if marker not in text:
+        return text, False
+    return text.replace(marker, "\n" + "\n".join(missing) + "\n\nFinal Result\n", 1), True
+
+
 def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
     if os.environ.get(CHILD_MARKER_NAME) != CHILD_MARKER_VALUE:
         raise DelegateError(
@@ -315,6 +347,14 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         "sessionMode": ns.session_mode,
         "sessionKey": ns.session_key,
         "outputFormat": "report",
+        "reportOnly": True,
+        "advisoryBoundary": DS_ADVISORY_BOUNDARY,
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "canEditBusinessFiles": False,
+        "canRunShellTests": False,
+        "canDispatchWorkerRuns": False,
+        "canAcceptWorkflowResults": False,
         "apiBaseUrl": base_url,
         "model": model,
         "apiKeyEnvNames": ["DEEPSEEK_API_KEY", "OPENAI_API_KEY", "OPENAI_COMPATIBLE_API_KEY"],
@@ -345,6 +385,14 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         "tracePath": str(paths["trace"]),
         "attemptCount": 1,
         "retryCount": 0,
+        "reportOnly": True,
+        "advisoryBoundary": DS_ADVISORY_BOUNDARY,
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "canEditBusinessFiles": False,
+        "canRunShellTests": False,
+        "canDispatchWorkerRuns": False,
+        "canAcceptWorkflowResults": False,
     }
 
     write_json(paths["config"], config)
@@ -355,6 +403,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
     failure_summary = ""
     response_json: dict[str, Any] = {}
     normalized_headings = False
+    boundary_injected = False
 
     try:
         response_json = _openai_chat_completion(
@@ -377,6 +426,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         failure_summary = _redact_secrets(str(exc), [api_key])
         report_text = _failure_report(role, failure_summary)
 
+    report_text, boundary_injected = _ensure_advisory_boundary_lines(report_text)
     write_text(paths["output"], report_text)
 
     usage = response_json.get("usage") if isinstance(response_json.get("usage"), dict) else {}
@@ -388,6 +438,8 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
         "usage": usage,
         "status": "ok" if exit_code == 0 else "error",
         "normalizedReportHeadings": normalized_headings,
+        "advisoryBoundary": DS_ADVISORY_BOUNDARY,
+        "advisoryBoundaryInjected": boundary_injected,
     }
     write_text(paths["stream"], json.dumps(stream_event, ensure_ascii=False) + "\n")
     write_text(paths["trace"], f"[{now_iso()}] runner={RUNNER_TYPE} status={stream_event['status']}\n")
@@ -397,6 +449,7 @@ def run_openai_compatible_report_delegate(ns: argparse.Namespace) -> int:
             "status": "completed" if exit_code == 0 else "failed",
             "exitCode": exit_code,
             "outputBytes": paths["output"].stat().st_size,
+            "advisoryBoundaryInjected": boundary_injected,
             "attempts": [
                 {
                     "attempt": 1,

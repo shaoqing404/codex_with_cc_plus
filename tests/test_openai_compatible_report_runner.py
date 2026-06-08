@@ -172,9 +172,18 @@ def test_openai_compatible_runner_writes_report_artifacts(monkeypatch, tmp_path:
     assert config["runnerType"] == "openai_compatible_report"
     assert config["model"] == "deepseek-v4-flash"
     assert config["timeoutSeconds"] == 600
+    assert config["reportOnly"] is True
+    assert config["mayOverrideValidator"] is False
+    assert config["mayOverrideVerifier"] is False
+    assert config["canEditBusinessFiles"] is False
+    assert config["canRunShellTests"] is False
     assert status["runnerType"] == "openai_compatible_report"
+    assert status["advisoryBoundary"]["canAcceptWorkflowResults"] is False
     assert workflow["runs"][run_id]["runnerType"] == "openai_compatible_report"
     assert status["status"] == "completed"
+    assert "- mayOverrideValidator=false" in output
+    assert "- mayOverrideVerifier=false" in output
+    assert "- canEditBusinessFiles=false" in output
     assert "dotenv-key" not in json.dumps(config)
     assert "dotenv-key" not in json.dumps(status)
     assert "dotenv-key" not in stream
@@ -269,6 +278,7 @@ def test_openai_compatible_runner_normalizes_markdown_headings(monkeypatch, tmp_
     assert "\nRole\nresearcher" in output
     assert "\nFinal Result\nDONE" in output
     assert stream["normalizedReportHeadings"] is True
+    assert stream["advisoryBoundary"]["mayOverrideVerifier"] is False
     verify_artifacts(run_id, str(artifact_root))
 
 
@@ -307,6 +317,8 @@ def test_openai_compatible_runner_structures_invalid_model_output(
     status = json.loads((artifact_root / f"status_{run_id}.json").read_text(encoding="utf-8"))
     assert "Status\nFAIL" in output
     assert expected_summary in status["failureSummary"]
+    assert "- mayOverrideVerifier=false" in output
+    assert status["mayOverrideVerifier"] is False
     verify_artifacts(run_id, str(artifact_root))
 
 
