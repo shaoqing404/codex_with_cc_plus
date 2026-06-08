@@ -340,6 +340,133 @@ def write_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None
     return json_path, md_path
 
 
+def build_workflow_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
+    summary = build_workflow_watch_summary(ns.workflow_id, ns.artifact_root)
+    artifact_root = Path(str(summary.get("artifactRoot") or resolve_artifact_root(ns.artifact_root, workflow_id=ns.workflow_id))).resolve()
+    workflow_file = workflow_path(artifact_root, ns.workflow_id)
+    workflow = _load_json_path(workflow_file)
+    run_audits: list[dict[str, Any]] = []
+    for run in summary.get("runs") or []:
+        run_id = str(run.get("runId") or "")
+        if not run_id:
+            continue
+        try:
+            run_audits.append(
+                build_audit_package(
+                    SimpleNamespace(
+                        run_id=run_id,
+                        artifact_root=str(artifact_root),
+                        stale_after_seconds=ns.stale_after_seconds,
+                        no_verify=ns.no_verify,
+                    )
+                )
+            )
+        except DelegateError as exc:
+            run_audits.append(
+                {
+                    "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+                    "invocationContract": INVOCATION_CONTRACT,
+                    "auditType": "codex-with-cc-run-audit",
+                    "runId": run_id,
+                    "workflowId": ns.workflow_id,
+                    "reportValid": False,
+                    "verifierPassed": False,
+                    "canEnterReview": False,
+                    "acceptanceAllowed": False,
+                    "failureLayer": "audit_generation_failed",
+                    "executionLayerFailure": True,
+                    "mainThreadAction": "inspect_missing_or_invalid_run_artifacts",
+                    "error": str(exc),
+                    "mayOverrideVerifier": False,
+                }
+            )
+    final_acceptance = workflow.get("finalAcceptance") if isinstance(workflow.get("finalAcceptance"), dict) else {}
+    failed_runs = [item.get("runId") for item in run_audits if item.get("executionLayerFailure") or item.get("businessFailure") or not item.get("reportValid")]
+    missing_gates = sorted({gate for item in run_audits for gate in item.get("missingGates") or []})
+    state_counts = summary.get("stateCounts") if isinstance(summary.get("stateCounts"), dict) else {}
+    running_states = {key: value for key, value in state_counts.items() if key in {"STARTING", "RUNNING_ACTIVE", "RUNNING_QUIET", "STALE", "RUNNING_DEAD_PROCESS"} and int(value) > 0}
+    acceptance_allowed = final_acceptance.get("status") == "accepted" and not failed_runs and not running_states
+    if acceptance_allowed:
+        main_action = "accept_or_commit"
+    elif running_states:
+        main_action = "wait_or_resolve_running_runs"
+    elif failed_runs:
+        main_action = "inspect_failed_runs_or_trigger_forensics"
+    elif missing_gates:
+        main_action = "dispatch_missing_review_gates"
+    else:
+        main_action = "run_workflow_verifier"
+    return {
+        "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+        "invocationContract": INVOCATION_CONTRACT,
+        "command": "ccstatus audit",
+        "auditType": "codex-with-cc-workflow-audit",
+        "workflowId": ns.workflow_id,
+        "artifactRoot": str(artifact_root),
+        "runCount": len(run_audits),
+        "runAudits": run_audits,
+        "stateCounts": state_counts,
+        "failedRuns": failed_runs,
+        "runningStates": running_states,
+        "missingGates": missing_gates,
+        "workflowFinalAcceptance": final_acceptance,
+        "acceptanceAllowed": acceptance_allowed,
+        "mainThreadAction": main_action,
+        "nextCommand": f"verify_delegate_workflow -WorkflowId {ns.workflow_id} -ArtifactRoot {artifact_root}",
+        "confidence": "high" if run_audits else "medium",
+        "evidencePaths": {
+            "workflow": str(workflow_file),
+            "artifactRoot": str(artifact_root),
+        },
+        "provenance": {
+            "sources": ["workflow", "run_audits", "supervisor"],
+            "generatedReasoning": ["failedRuns", "missingGates", "acceptanceAllowed", "mainThreadAction"],
+        },
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "updatedAt": now_iso(),
+    }
+
+
+def write_workflow_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None = None) -> tuple[Path, Path]:
+    root = resolve_artifact_root(artifact_root_value, workflow_id=str(audit["workflowId"]))
+    workflow_id = str(audit["workflowId"])
+    json_path = root / f"audit_{workflow_id}.json"
+    md_path = root / f"audit_{workflow_id}.md"
+    audit["auditPath"] = str(json_path)
+    audit["auditMarkdownPath"] = str(md_path)
+    write_json(json_path, audit)
+    write_text(
+        md_path,
+        "\n".join(
+            [
+                "# Codex With CC Workflow Audit",
+                "",
+                f"WorkflowId: {workflow_id}",
+                f"RunCount: {audit.get('runCount')}",
+                f"AcceptanceAllowed: {str(audit.get('acceptanceAllowed')).lower()}",
+                f"MainThreadAction: {audit.get('mainThreadAction')}",
+                f"mayOverrideVerifier: {str(audit.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## Failed Runs",
+                "",
+                "\n".join(f"- {item}" for item in audit.get("failedRuns") or []) or "- none",
+                "",
+                "## Missing Gates",
+                "",
+                "\n".join(f"- {item}" for item in audit.get("missingGates") or []) or "- none",
+                "",
+                "## Evidence Paths",
+                "",
+                "\n".join(f"- {key}: {value}" for key, value in (audit.get("evidencePaths") or {}).items()),
+                "",
+            ]
+        )
+        + "\n",
+    )
+    return json_path, md_path
+
+
 def build_workflow_status(ns: argparse.Namespace) -> dict[str, Any]:
     summary = build_workflow_watch_summary(ns.workflow_id, ns.artifact_root)
     final_acceptance = summary.get("finalAcceptance") if isinstance(summary.get("finalAcceptance"), dict) else {}
@@ -424,8 +551,12 @@ def run_ccstatus(ns: argparse.Namespace) -> int:
     elif command == "run":
         report = build_run_status(ns)
     elif command == "audit":
-        report = build_audit_package(ns)
-        write_audit_artifacts(report, ns.artifact_root)
+        if getattr(ns, "workflow_id", None):
+            report = build_workflow_audit_package(ns)
+            write_workflow_audit_artifacts(report, ns.artifact_root)
+        else:
+            report = build_audit_package(ns)
+            write_audit_artifacts(report, ns.artifact_root)
     elif command == "workflow":
         report = build_workflow_status(ns)
     else:

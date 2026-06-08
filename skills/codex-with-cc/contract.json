@@ -159,7 +159,10 @@
   "auditPackageSchema": {
     "artifactPattern": "audit_<RunId>.json",
     "markdownPattern": "audit_<RunId>.md",
+    "workflowArtifactPattern": "audit_<WorkflowId>.json",
+    "workflowMarkdownPattern": "audit_<WorkflowId>.md",
     "command": "ccstatus audit -RunId <run-id> -ArtifactRoot <artifact-root> --json",
+    "workflowCommand": "ccstatus audit -WorkflowId <workflow-id> -ArtifactRoot <artifact-root> --json",
     "requiredFields": [
       "auditType",
       "runId",

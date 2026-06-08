@@ -269,8 +269,10 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 - `stream_<RunId>.jsonl`
 - `trace_<RunId>.log`
 - `session-pools/<SessionKey>.json`
-- `audit_<RunId>.json/.md` when `ccstatus audit` is run for a canonical
-  main-thread audit package
+- `audit_<RunId>.json/.md` when `ccstatus audit -RunId` is run for a canonical
+  run audit package
+- `audit_<WorkflowId>.json/.md` when `ccstatus audit -WorkflowId` is run for a
+  workflow rollup audit package
 
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
@@ -297,8 +299,11 @@ human to install, configure, or restart Claude Code/OpenClaw/MiniMax instead of
 spending another worker run.
 `ccstatus audit -RunId <run-id> --json` writes `audit_<RunId>.json/.md` and answers
 whether the main thread can enter review, accept the result, must dispatch missing
-gates, should rerun, or should diagnose an execution-layer failure. Audit packages
-must keep `mayOverrideVerifier=false`.
+gates, should rerun, or should diagnose an execution-layer failure.
+`ccstatus audit -WorkflowId <workflow-id> --json` writes
+`audit_<WorkflowId>.json/.md` and rolls up run audits, failed runs, running states,
+missing gates, final workflow acceptance, and the recommended main-thread action.
+Audit packages must keep `mayOverrideVerifier=false`.
 
 Use `ccindex.* build|list|show|export` for machine-level workflow indexing across
 project and user fallback artifact roots. Use `ccdash.* build|open` for a local

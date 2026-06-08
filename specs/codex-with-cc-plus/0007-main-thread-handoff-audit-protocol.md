@@ -31,7 +31,8 @@ Implemented in this phase:
 
 Not yet implemented:
 
-- workflow-verifier-owned audit rollups across multiple runs;
+- workflow-verifier-owned acceptance audit generation remains separate from the
+  `ccstatus audit -WorkflowId` rollup;
 - automatic post-execution DS routing;
 - PageIndex socket/API failure fixture;
 - full provider adapter support for cc-switch desktop state.
@@ -373,6 +374,9 @@ Implemented subcommands:
 - `ccstatus audit -RunId <id> --json`: write `audit_<RunId>.json/.md` with
   worker claim, verifier state, missing gates, failure layer, evidence paths, and
   main-thread action.
+- `ccstatus audit -WorkflowId <id> --json`: write `audit_<WorkflowId>.json/.md`
+  with run audit rollups, failed/running runs, missing gates, workflow final
+  acceptance, evidence paths, and main-thread action.
 - `ccstatus workflow -WorkflowId <id> --json`: workflow-level gate state and
   missing review/audit requirements.
 - `ccstatus preflight --json`: first-use gate that refuses framework dispatch when
@@ -550,8 +554,8 @@ All thresholds must be configurable.
 
 ### P0: Audit Package
 
-Status: implemented for individual runs through `ccstatus audit`; workflow-level
-rollup audits remain a future refinement.
+Status: implemented for individual runs and workflow rollups through
+`ccstatus audit`.
 
 Generate a compact audit package after worker completion or failure.
 

@@ -430,6 +430,47 @@ def test_ccstatus_audit_writes_canonical_package_for_reviewable_run() -> None:
         assert json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))["runId"] == run_id
 
 
+def test_ccstatus_audit_writes_workflow_rollup_package() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_workflow_audit_") as tmp:
+        root = Path(tmp)
+        artifact_root = root / "artifacts"
+        task = root / "task.md"
+        task.write_text(compliant_task("workflow audit dry run"), encoding="utf-8")
+        delegated = run_script(
+            DELEGATE,
+            "-TaskFile",
+            str(task),
+            "-WorkflowId",
+            "wf-rollup",
+            "-TaskId",
+            "task-rollup",
+            "-Role",
+            "implementer",
+            "-ArtifactRoot",
+            str(artifact_root),
+            "-SessionKey",
+            "rollup-session",
+            "-DryRun",
+            env={"CODEX_CLAUDE_CHILD_THREAD": "1"},
+        )
+        assert delegated.returncode == 0, delegated.stdout + delegated.stderr
+
+        audit = run_script(CCSTATUS, "audit", "-WorkflowId", "wf-rollup", "-ArtifactRoot", str(artifact_root), "--json")
+
+        assert audit.returncode == 0, audit.stdout + audit.stderr
+        payload = json.loads(audit.stdout)
+        assert payload["auditType"] == "codex-with-cc-workflow-audit"
+        assert payload["runCount"] == 1
+        assert payload["acceptanceAllowed"] is False
+        assert payload["mainThreadAction"] == "dispatch_missing_review_gates"
+        assert "spec_review" in payload["missingGates"]
+        assert "workflow_final_acceptance" in payload["missingGates"]
+        assert payload["mayOverrideVerifier"] is False
+        assert Path(payload["auditPath"]).exists()
+        assert Path(payload["auditMarkdownPath"]).exists()
+        assert json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))["workflowId"] == "wf-rollup"
+
+
 def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_delegate_refusal_") as tmp:
         root = Path(tmp)
