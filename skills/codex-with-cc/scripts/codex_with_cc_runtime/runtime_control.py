@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import plistlib
 import shutil
 from datetime import datetime, timezone
 from pathlib import Path
@@ -34,6 +35,16 @@ MODEL_ENV_KEYS = {
     "sonnet": ("ANTHROPIC_DEFAULT_SONNET_MODEL", "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME"),
     "haiku": ("ANTHROPIC_DEFAULT_HAIKU_MODEL", "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME"),
 }
+CCSWITCH_CLI_NAMES = ("ccwitch", "ccswitch", "cc-switch")
+CCSWITCH_SECRET_HINTS = ("token", "secret", "password", "api_key", "apikey", "auth", "cookie", "session")
+CCSWITCH_STATE_FILES = (
+    "config.json",
+    "settings.json",
+    "state.json",
+    "current.json",
+    "profile.json",
+)
+MAX_CCSWITCH_STATE_BYTES = 128 * 1024
 
 
 def _settings_path(ns: argparse.Namespace | None = None) -> Path:
@@ -80,6 +91,127 @@ def _find_package_version(command_path: str | None, package_name: str) -> dict[s
     return {"packageName": package_name, "version": "", "packagePath": "", "confidence": "medium"}
 
 
+def _redact_ccswitch_value(key: str, value: Any) -> Any:
+    lowered = key.lower()
+    if any(hint in lowered for hint in CCSWITCH_SECRET_HINTS):
+        return {"present": bool(value), "redacted": True}
+    if isinstance(value, bytes):
+        return {"present": bool(value), "redacted": True, "type": "bytes", "length": len(value)}
+    if isinstance(value, datetime):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {str(child_key): _redact_ccswitch_value(str(child_key), child_value) for child_key, child_value in value.items()}
+    if isinstance(value, list):
+        return [_redact_ccswitch_value(key, item) for item in value[:25]]
+    if isinstance(value, str) and len(value) > 500:
+        return f"{value[:500]}...<truncated>"
+    if value is None or isinstance(value, (bool, int, float, str)):
+        return value
+    return str(value)
+
+
+def _load_ccswitch_json(path: Path) -> tuple[Any, str]:
+    try:
+        if path.stat().st_size > MAX_CCSWITCH_STATE_BYTES:
+            return None, "skipped_too_large"
+        return json.loads(path.read_text(encoding="utf-8")), "ok"
+    except Exception as exc:
+        return {"error": str(exc)}, "parse_error"
+
+
+def _load_ccswitch_plist(path: Path) -> tuple[Any, str]:
+    try:
+        if path.stat().st_size > MAX_CCSWITCH_STATE_BYTES:
+            return None, "skipped_too_large"
+        with path.open("rb") as handle:
+            return plistlib.load(handle), "ok"
+    except Exception as exc:
+        return {"error": str(exc)}, "parse_error"
+
+
+def _ccswitch_path_probe(path: Path, kind: str) -> dict[str, Any]:
+    exists = path.exists()
+    probe: dict[str, Any] = {
+        "kind": kind,
+        "path": str(path),
+        "exists": exists,
+        "loadStatus": "missing",
+        "confidence": "low",
+        "provenance": {"source": str(path), "redacted": True},
+    }
+    if not exists:
+        return probe
+    if path.is_dir():
+        names: list[str] = []
+        try:
+            names = sorted(item.name for item in path.iterdir())[:25]
+        except Exception as exc:
+            probe.update({"loadStatus": "list_error", "error": str(exc), "confidence": "medium"})
+            return probe
+        probe.update({"loadStatus": "directory", "entries": names, "confidence": "medium"})
+        metadata: dict[str, Any] = {}
+        for filename in CCSWITCH_STATE_FILES:
+            candidate = path / filename
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            loaded, load_status = _load_ccswitch_json(candidate)
+            metadata[filename] = {
+                "path": str(candidate),
+                "loadStatus": load_status,
+                "value": _redact_ccswitch_value(filename, loaded) if load_status == "ok" else loaded,
+                "provenance": {"source": str(candidate), "redacted": True},
+            }
+        if metadata:
+            probe["metadata"] = metadata
+            probe["confidence"] = "high"
+        return probe
+    if path.suffix == ".plist":
+        loaded, load_status = _load_ccswitch_plist(path)
+    elif path.suffix == ".json":
+        loaded, load_status = _load_ccswitch_json(path)
+    else:
+        loaded, load_status = None, "file_present_unread"
+    probe.update(
+        {
+            "loadStatus": load_status,
+            "value": _redact_ccswitch_value(path.name, loaded) if load_status == "ok" else loaded,
+            "confidence": "high" if load_status == "ok" else "medium",
+        }
+    )
+    return probe
+
+
+def _discover_ccswitch_provider() -> dict[str, Any]:
+    cli_candidates = [{"name": name, "path": shutil.which(name) or ""} for name in CCSWITCH_CLI_NAMES]
+    available_cli = next((item for item in cli_candidates if item["path"]), None)
+    home = Path.home()
+    state_paths = [
+        _ccswitch_path_probe(home / ".cc-switch", "home_state"),
+        _ccswitch_path_probe(home / "Library" / "Application Support" / "com.ccswitch.desktop", "desktop_app_support"),
+        _ccswitch_path_probe(home / "Library" / "Preferences" / "com.ccswitch.desktop.plist", "desktop_preferences"),
+    ]
+    state_found = any(item.get("exists") for item in state_paths)
+    load_status = "cli_available" if available_cli else "desktop_state_found" if state_found else "not_found"
+    confidence = "high" if available_cli and state_found else "medium" if available_cli or state_found else "low"
+    return {
+        "provider": "cc-switch",
+        "available": bool(available_cli),
+        "path": str(available_cli.get("path")) if available_cli else "",
+        "cliCandidates": cli_candidates,
+        "desktopStateAvailable": state_found,
+        "desktopState": state_paths,
+        "loadStatus": load_status,
+        "confidence": confidence,
+        "mutability": "read_only",
+        "mayRepairRuntime": False,
+        "provenance": {
+            "cliNames": list(CCSWITCH_CLI_NAMES),
+            "statePaths": [item["path"] for item in state_paths],
+            "redacted": True,
+        },
+    }
+
+
 def _redacted_settings(data: dict[str, Any], path: Path, load_status: str) -> dict[str, Any]:
     env = data.get("env") if isinstance(data.get("env"), dict) else {}
     safe_env = {key: env.get(key) for key in SAFE_ENV_KEYS if key in env}
@@ -101,14 +233,22 @@ def build_runtime_status(ns: argparse.Namespace | None = None) -> dict[str, Any]
     settings, load_status = _load_settings(settings_path)
     claude_path = shutil.which("claude")
     openclaw_path = shutil.which("openclaw")
-    ccwitch_path = shutil.which("ccwitch")
+    ccswitch_provider = _discover_ccswitch_provider()
+    ccwitch_path = ccswitch_provider.get("path") or ""
     claude_package = _find_package_version(claude_path, "@anthropic-ai/claude-code")
     openclaw_package = _find_package_version(openclaw_path, "openclaw")
     checks = []
     checks.append({"name": "claude_cli", "status": "pass" if claude_path else "fail", "path": claude_path or ""})
     checks.append({"name": "claude_settings", "status": "pass" if load_status == "ok" else "warn", "path": str(settings_path), "loadStatus": load_status})
     checks.append({"name": "openclaw", "status": "pass" if openclaw_path else "warn", "path": openclaw_path or ""})
-    checks.append({"name": "ccwitch", "status": "pass" if ccwitch_path else "warn", "path": ccwitch_path or ""})
+    checks.append(
+        {
+            "name": "ccswitch_provider",
+            "status": "pass" if ccswitch_provider.get("available") else "warn" if ccswitch_provider.get("desktopStateAvailable") else "warn",
+            "path": ccwitch_path,
+            "loadStatus": ccswitch_provider.get("loadStatus"),
+        }
+    )
     confidence = "high" if claude_path and load_status == "ok" else "medium" if claude_path or load_status == "ok" else "low"
     return {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
@@ -118,7 +258,8 @@ def build_runtime_status(ns: argparse.Namespace | None = None) -> dict[str, Any]
         "confidence": confidence,
         "claudeCli": {"path": claude_path or "", **claude_package},
         "openclaw": {"path": openclaw_path or "", **openclaw_package},
-        "ccwitch": {"path": ccwitch_path or "", "available": bool(ccwitch_path)},
+        "ccwitch": ccswitch_provider,
+        "ccswitchProvider": ccswitch_provider,
         "claudeSettings": _redacted_settings(settings, settings_path, load_status),
         "runnerDefaults": {
             "model": "sonnet",
@@ -130,6 +271,7 @@ def build_runtime_status(ns: argparse.Namespace | None = None) -> dict[str, Any]
             "claudeCodeCliPackageVersion": claude_package.get("version") or "",
             "openclawVersion": openclaw_package.get("version") or "",
             "minimaxDetected": "MiniMax" in json.dumps(_redacted_settings(settings, settings_path, load_status), ensure_ascii=False),
+            "ccswitchProviderLoadStatus": ccswitch_provider.get("loadStatus"),
             "directClaudeCliExecution": "forbidden-outside-delegate-runner",
         },
         "checks": checks,
@@ -304,7 +446,7 @@ def render_runtime_text(report: dict[str, Any]) -> str:
         f"Confidence: {report.get('confidence')}",
         f"ClaudeCli: {report.get('claudeCli', {}).get('path') or '-'} version={report.get('claudeCli', {}).get('version') or '-'}",
         f"OpenClaw: {report.get('openclaw', {}).get('path') or '-'} version={report.get('openclaw', {}).get('version') or '-'}",
-        f"Ccwitch: {report.get('ccwitch', {}).get('path') or '-'}",
+        f"CcSwitch: {report.get('ccswitchProvider', report.get('ccwitch', {})).get('path') or '-'} loadStatus={report.get('ccswitchProvider', report.get('ccwitch', {})).get('loadStatus') or '-'}",
         f"ClaudeSettings: {report.get('claudeSettings', {}).get('path')} model={report.get('claudeSettings', {}).get('model')}",
         f"RunnerDefault: -Model {report.get('runnerDefaults', {}).get('model')} -PermissionMode {report.get('runnerDefaults', {}).get('permissionMode')}",
     ]

@@ -69,8 +69,8 @@ Failure branches:
   child-thread refusal protocol, `ccstatus`, run-level audit artifacts, and
   workflow rollup audit artifacts, plus verifier-owned workflow audit artifacts,
   DS advisory boundary artifacts, hook fallback guidance, and the PageIndex
-  API/socket failure fixture; tracks P1/P2 automatic DS routing and provider
-  adapter follow-ups.
+  API/socket failure fixture, plus read-only cc-switch provider discovery;
+  tracks P1/P2 automatic DS routing follow-ups.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

@@ -296,7 +296,12 @@ visibility and controlled settings changes. `status` and `plan-switch` are
 read-first and redact secrets. `apply-switch` requires `-ConfirmRuntimeChange`,
 only changes whitelisted Claude settings fields, writes `runtime_<timestamp>.json/.md`,
 and records rollback evidence. Permission mode changes apply to delegate runner
-arguments, not to hidden global config.
+arguments, not to hidden global config. `status` also reports a read-only
+`ccswitchProvider` fact block for `ccwitch`, `ccswitch`, and `cc-switch` CLI
+discovery plus redacted desktop state under known cc-switch paths. This is
+diagnostic evidence only: it has `mutability=read_only`,
+`mayRepairRuntime=false`, confidence, and provenance, and it must not be treated
+as runtime repair or workflow acceptance.
 
 Use `ccstatus.* summary|claude|preflight|run|audit|workflow` as the main-thread
 decision surface. `ccruntime` answers what is configured; `ccstatus` answers

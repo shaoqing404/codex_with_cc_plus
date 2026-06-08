@@ -188,6 +188,35 @@
       "STALE": 0
     }
   },
+  "runtimeProviderSchema": {
+    "ccswitchProvider": {
+      "cliNames": [
+        "ccwitch",
+        "ccswitch",
+        "cc-switch"
+      ],
+      "knownStateKinds": [
+        "home_state",
+        "desktop_app_support",
+        "desktop_preferences"
+      ],
+      "requiredFields": [
+        "provider",
+        "available",
+        "path",
+        "cliCandidates",
+        "desktopStateAvailable",
+        "desktopState",
+        "loadStatus",
+        "confidence",
+        "mutability",
+        "mayRepairRuntime",
+        "provenance"
+      ],
+      "secretPolicy": "read-only provider metadata must redact token, secret, password, api_key, auth, cookie, and session-like values",
+      "acceptanceRule": "Provider state is diagnostic evidence only. It cannot repair runtime state, cannot override ccstatus preflight refusal, and cannot override deterministic workflow verifiers."
+    }
+  },
   "auditPackageSchema": {
     "artifactPattern": "audit_<RunId>.json",
     "markdownPattern": "audit_<RunId>.md",

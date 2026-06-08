@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import os
+import plistlib
 import subprocess
 import sys
 import tempfile
@@ -435,6 +436,54 @@ def test_runtime_status_and_apply_switch_are_redacted_and_reversible() -> None:
         assert updated["env"]["ANTHROPIC_DEFAULT_OPUS_MODEL_NAME"] == "MiniMax-M3"
 
 
+def test_runtime_status_discovers_ccswitch_cli_and_desktop_state_without_secrets() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_ccswitch_") as tmp:
+        root = Path(tmp)
+        home = root / "home"
+        fake_bin = root / "bin"
+        fake_bin.mkdir(parents=True)
+        fake_cli = fake_bin / "cc-switch"
+        fake_cli.write_text("#!/bin/sh\nexit 0\n", encoding="utf-8")
+        fake_cli.chmod(0o755)
+
+        settings_path = home / ".claude" / "settings.json"
+        settings_path.parent.mkdir(parents=True, exist_ok=True)
+        settings_path.write_text(json.dumps({"model": "opus", "env": {"ANTHROPIC_BASE_URL": "http://127.0.0.1:15721"}}), encoding="utf-8")
+
+        home_state = home / ".cc-switch"
+        home_state.mkdir(parents=True)
+        home_state.joinpath("config.json").write_text(
+            json.dumps({"provider": "MiniMax", "model": "MiniMax-M3", "apiKey": "ccswitch-secret"}),
+            encoding="utf-8",
+        )
+        app_state = home / "Library" / "Application Support" / "com.ccswitch.desktop"
+        app_state.mkdir(parents=True)
+        app_state.joinpath("state.json").write_text(json.dumps({"activeProfile": "local-minimax"}), encoding="utf-8")
+        plist_path = home / "Library" / "Preferences" / "com.ccswitch.desktop.plist"
+        plist_path.parent.mkdir(parents=True, exist_ok=True)
+        with plist_path.open("wb") as handle:
+            plistlib.dump({"selectedProvider": "MiniMax", "authToken": "plist-secret", "opaqueData": b"\x00\x01local"}, handle)
+
+        env = {
+            "HOME": str(home),
+            "CODEX_HOME": str(root / "codex-home"),
+            "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+        }
+        status = run_script(CCRUNTIME, "status", "-ClaudeSettingsPath", str(settings_path), "--json", env=env)
+        assert status.returncode == 0, status.stdout + status.stderr
+        payload = json.loads(status.stdout)
+        provider = payload["ccswitchProvider"]
+        assert provider["available"] is True
+        assert provider["path"] == str(fake_cli)
+        assert provider["desktopStateAvailable"] is True
+        assert provider["loadStatus"] == "cli_available"
+        assert provider["mutability"] == "read_only"
+        assert provider["mayRepairRuntime"] is False
+        assert "ccswitch-secret" not in status.stdout
+        assert "plist-secret" not in status.stdout
+        assert '"redacted": true' in status.stdout
+
+
 def test_delegate_permission_mode_is_recorded_and_forwarded() -> None:
     args = new_claude_cli_args("opus", "session-name", "session-id", False, None, False, permission_mode="plan")
     assert args[args.index("--permission-mode") + 1] == "plan"
@@ -513,6 +562,18 @@ def test_child_thread_return_protocol_keeps_waiting_runs_non_terminal() -> None:
     assert contract["mainThreadHandoffSchema"]["recommendedWaitPolicy"]["RUNNING_ACTIVE"] == 60
 
 
+def test_contract_declares_ccswitch_provider_schema_boundary() -> None:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    provider_schema = contract["runtimeProviderSchema"]["ccswitchProvider"]
+
+    assert {"ccwitch", "ccswitch", "cc-switch"} <= set(provider_schema["cliNames"])
+    assert {"home_state", "desktop_app_support", "desktop_preferences"} <= set(provider_schema["knownStateKinds"])
+    assert "mutability" in provider_schema["requiredFields"]
+    assert "mayRepairRuntime" in provider_schema["requiredFields"]
+    assert "diagnostic evidence only" in provider_schema["acceptanceRule"]
+    assert "cannot override deterministic workflow verifiers" in provider_schema["acceptanceRule"]
+
+
 def test_ccstatus_claude_blocks_when_local_backend_is_unreachable_and_redacts_token() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_status_") as tmp:
         home = Path(tmp) / "home"
@@ -531,7 +592,9 @@ def test_ccstatus_claude_blocks_when_local_backend_is_unreachable_and_redacts_to
             ),
             encoding="utf-8",
         )
-        env = {"HOME": str(home), "CODEX_HOME": str(Path(tmp) / "codex-home")}
+        empty_bin = Path(tmp) / "empty-bin"
+        empty_bin.mkdir()
+        env = {"HOME": str(home), "CODEX_HOME": str(Path(tmp) / "codex-home"), "PATH": str(empty_bin)}
         status = run_script(CCSTATUS, "claude", "-ClaudeSettingsPath", str(settings_path), "--json", env=env)
         assert status.returncode == 1
         payload = json.loads(status.stdout)
@@ -540,6 +603,8 @@ def test_ccstatus_claude_blocks_when_local_backend_is_unreachable_and_redacts_to
         assert payload["handoff"]["delegateStatus"] == "REFUSED"
         assert payload["handoff"]["childThreadAction"] == "do_not_call_delegate_to_claude"
         assert payload["backendReachable"] is False
+        assert payload["ccswitchProvider"]["provider"] == "cc-switch"
+        assert payload["ccswitchProvider"]["loadStatus"] == "not_found"
         assert "secret-token" not in status.stdout
 
 

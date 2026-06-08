@@ -37,11 +37,13 @@ Implemented in this phase:
   `businessAcceptance=blocked`, `businessFilesChanged=false`, and
   `safeToRetrySameTaskFile=true`;
 - hook fallback context for `ccstatus preflight`, `WAITING`, `REFUSED`,
-  `RUNNING_DEAD_PROCESS`, audit handoff, and DS advisory-only boundaries.
+  `RUNNING_DEAD_PROCESS`, audit handoff, and DS advisory-only boundaries;
+- read-only cc-switch provider adapter for CLI discovery and redacted desktop
+  state inspection.
 
 Not yet implemented:
 
-- full provider adapter support for cc-switch desktop state.
+- automatic DS routing for P1/P2 orchestration assistance.
 
 ## Role Personas
 
@@ -500,14 +502,17 @@ Current local discovery notes from this machine:
   `~/Library/Application Support/com.ccswitch.desktop`, and
   `~/Library/Preferences/com.ccswitch.desktop.plist`.
 
-Design implication:
+Implemented design implication:
 
-- `ccstatus` and `ccruntime` should report both CLI availability and discovered
+- `ccstatus` and `ccruntime` report both CLI availability and discovered
   non-PATH app state as separate facts.
 - The framework should not assume the desktop tool is operable simply because app
   state exists.
-- Future provider adapters may inspect cc-switch metadata in a redacted,
-  read-only way, but must not mutate it without explicit confirmation.
+- The cc-switch provider adapter inspects known state paths in a redacted,
+  read-only way. It reports `confidence`, `provenance`, `loadStatus`,
+  `mutability=read_only`, and `mayRepairRuntime=false`.
+- Provider state is diagnostic evidence only. `ccstatus preflight` still owns
+  dispatch refusal and `verify_delegate_workflow` still owns acceptance gates.
 
 ## Requirement Queue
 

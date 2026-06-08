@@ -91,6 +91,7 @@ def build_claude_status(ns: argparse.Namespace) -> dict[str, Any]:
         "claudeCliVersion": claude.get("version") or "",
         "openclaw": runtime.get("openclaw", {}),
         "ccwitch": runtime.get("ccwitch", {}),
+        "ccswitchProvider": runtime.get("ccswitchProvider", runtime.get("ccwitch", {})),
         "backendBaseUrl": base_url,
         "backendReachable": reachability.get("reachable"),
         "backendReachability": reachability,

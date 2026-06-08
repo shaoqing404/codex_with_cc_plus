@@ -35,8 +35,9 @@ ccruntime apply-switch -Model opus -PermissionMode acceptEdits -ConfirmRuntimeCh
 
 Rules:
 
-- `status` reads Claude CLI, OpenClaw, ccwitch, runner defaults, and redacted
-  Claude settings.
+- `status` reads Claude CLI, OpenClaw, runner defaults, redacted Claude settings,
+  and read-only `ccswitchProvider` facts from ccwitch/ccswitch/cc-switch CLI
+  discovery plus known desktop state paths.
 - `plan-switch` is dry-run and records the next delegate `-Model` and
   `-PermissionMode` arguments.
 - `apply-switch` requires `-ConfirmRuntimeChange`, changes only whitelisted Claude
@@ -112,8 +113,9 @@ Observed product lesson:
 
 - `delegate_to_claude.*` supports `-PermissionMode` while defaulting to
   `acceptEdits`.
-- `ccruntime` reports Claude/OpenClaw/ccwitch/runtime settings without secrets and
-  can apply confirmed whitelisted changes with rollback evidence.
+- `ccruntime` reports Claude/OpenClaw/cc-switch provider/runtime settings without
+  secrets and can apply confirmed whitelisted Claude settings changes with
+  rollback evidence.
 - `ccindex` emits a machine-level JSON index with confidence and provenance.
 - `ccdash` renders a local static read-only HTML dashboard from the index.
 - macOS and Windows wrappers are thin forwarding scripts.
