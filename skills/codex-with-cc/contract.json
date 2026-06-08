@@ -217,6 +217,38 @@
       "acceptanceRule": "Provider state is diagnostic evidence only. It cannot repair runtime state, cannot override ccstatus preflight refusal, and cannot override deterministic workflow verifiers."
     }
   },
+  "dsRoutingSchema": {
+    "routeType": "ds-advisory-routing-plan",
+    "requiredFields": [
+      "recommendation",
+      "shouldRoute",
+      "automaticDispatch",
+      "trigger",
+      "role",
+      "runnerType",
+      "model",
+      "reason",
+      "nextCommandTemplate",
+      "taskFileGuidance",
+      "evidencePaths",
+      "confidence",
+      "provenance",
+      "advisoryOnly",
+      "mayOverrideValidator",
+      "mayOverrideVerifier",
+      "canEditBusinessFiles",
+      "canRunShellTests",
+      "canDispatchWorkerRuns",
+      "canAcceptWorkflowResults"
+    ],
+    "recommendationValues": [
+      "recommended",
+      "optional",
+      "not_recommended"
+    ],
+    "automaticDispatchRule": "ccstatus may recommend a DS route, but must keep automaticDispatch=false. A main thread or explicit child-thread report-only TaskFile must opt in before any DS model call.",
+    "acceptanceRule": "DS routing plans and DS reports are advisory friction reducers. They cannot override validate_delegate_task, ccstatus preflight refusal, run/workflow verifiers, review gates, or final acceptance."
+  },
   "auditPackageSchema": {
     "artifactPattern": "audit_<RunId>.json",
     "markdownPattern": "audit_<RunId>.md",
@@ -243,6 +275,7 @@
       "failureLayer",
       "executionLayerFailure",
       "mainThreadAction",
+      "dsRouting",
       "evidencePaths",
       "mayOverrideVerifier"
     ],

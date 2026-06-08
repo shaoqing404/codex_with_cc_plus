@@ -574,6 +574,19 @@ def test_contract_declares_ccswitch_provider_schema_boundary() -> None:
     assert "cannot override deterministic workflow verifiers" in provider_schema["acceptanceRule"]
 
 
+def test_contract_declares_ds_routing_schema_boundary() -> None:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    ds_schema = contract["dsRoutingSchema"]
+
+    assert ds_schema["routeType"] == "ds-advisory-routing-plan"
+    assert {"recommended", "optional", "not_recommended"} <= set(ds_schema["recommendationValues"])
+    assert "automaticDispatch" in ds_schema["requiredFields"]
+    assert "mayOverrideVerifier" in ds_schema["requiredFields"]
+    assert "canAcceptWorkflowResults" in ds_schema["requiredFields"]
+    assert "automaticDispatch=false" in ds_schema["automaticDispatchRule"]
+    assert "cannot override" in ds_schema["acceptanceRule"]
+
+
 def test_ccstatus_claude_blocks_when_local_backend_is_unreachable_and_redacts_token() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_status_") as tmp:
         home = Path(tmp) / "home"
@@ -659,9 +672,15 @@ def test_ccstatus_audit_writes_canonical_package_for_reviewable_run() -> None:
         assert payload["acceptanceAllowed"] is False
         assert "spec_review" in payload["missingGates"]
         assert payload["mayOverrideVerifier"] is False
+        assert payload["dsRouting"]["recommendation"] == "not_recommended"
+        assert payload["dsRouting"]["trigger"] == "missing_review_gates"
+        assert payload["dsRouting"]["automaticDispatch"] is False
+        assert payload["dsRouting"]["mayOverrideVerifier"] is False
         assert Path(payload["auditPath"]).exists()
         assert Path(payload["auditMarkdownPath"]).exists()
-        assert json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))["runId"] == run_id
+        stored_audit = json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))
+        assert stored_audit["runId"] == run_id
+        assert stored_audit["dsRouting"]["recommendation"] == "not_recommended"
 
 
 def test_ccstatus_audit_writes_workflow_rollup_package() -> None:
@@ -700,9 +719,15 @@ def test_ccstatus_audit_writes_workflow_rollup_package() -> None:
         assert "spec_review" in payload["missingGates"]
         assert "workflow_final_acceptance" in payload["missingGates"]
         assert payload["mayOverrideVerifier"] is False
+        assert payload["dsRouting"]["recommendation"] == "not_recommended"
+        assert payload["dsRouting"]["trigger"] == "missing_review_gates"
+        assert payload["dsRouting"]["automaticDispatch"] is False
+        assert payload["dsRouting"]["mayOverrideVerifier"] is False
         assert Path(payload["auditPath"]).exists()
         assert Path(payload["auditMarkdownPath"]).exists()
-        assert json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))["workflowId"] == "wf-rollup"
+        stored_audit = json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))
+        assert stored_audit["workflowId"] == "wf-rollup"
+        assert stored_audit["dsRouting"]["recommendation"] == "not_recommended"
 
 
 def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
@@ -754,6 +779,12 @@ def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
         assert audit_json["failureLayer"] == "claude_api_socket"
         assert audit_json["mainThreadAction"] == "run_runtime_diagnostics"
         assert audit_json["acceptanceAllowed"] is False
+        assert audit_json["dsRouting"]["recommendation"] == "recommended"
+        assert audit_json["dsRouting"]["trigger"] == "execution_layer_failure"
+        assert audit_json["dsRouting"]["role"] == "forensic-analyst"
+        assert audit_json["dsRouting"]["model"] == "deepseek-v4-pro"
+        assert audit_json["dsRouting"]["automaticDispatch"] is False
+        assert audit_json["dsRouting"]["mayOverrideVerifier"] is False
 
 
 def test_pageindex_socket_failure_fixture_is_execution_layer_failure_not_acceptance() -> None:
@@ -789,6 +820,11 @@ def test_pageindex_socket_failure_fixture_is_execution_layer_failure_not_accepta
         assert audit_payload["businessFilesChanged"] is False
         assert audit_payload["safeToRetrySameTaskFile"] is True
         assert audit_payload["mainThreadAction"] == "run_runtime_diagnostics"
+        assert audit_payload["dsRouting"]["recommendation"] == "recommended"
+        assert audit_payload["dsRouting"]["trigger"] == "execution_layer_failure"
+        assert audit_payload["dsRouting"]["role"] == "forensic-analyst"
+        assert audit_payload["dsRouting"]["automaticDispatch"] is False
+        assert audit_payload["dsRouting"]["canAcceptWorkflowResults"] is False
         assert Path(audit_payload["auditPath"]).exists()
 
         built = run_script(CCINDEX, "build", "-ArtifactRoot", str(artifact_root), "--json")

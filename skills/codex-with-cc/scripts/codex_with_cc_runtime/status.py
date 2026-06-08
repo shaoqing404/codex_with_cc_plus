@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 from .artifacts import resolve_artifact_root
 from .common import ARTIFACT_SCHEMA_VERSION, INVOCATION_CONTRACT, DelegateError, now_iso
 from .doctor import build_doctor_report
+from .ds_routing import run_audit_ds_routing, workflow_audit_ds_routing
 from .handoff import refusal_handoff, terminal_handoff, wait_handoff
 from .index import build_index
 from .io_utils import load_json, read_text, write_json, write_text
@@ -309,6 +310,7 @@ def build_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
         "mayOverrideVerifier": False,
         "updatedAt": now_iso(),
     }
+    audit["dsRouting"] = run_audit_ds_routing(audit)
     return audit
 
 
@@ -339,6 +341,15 @@ def write_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None
                 f"FailureLayer: {audit.get('failureLayer') or '-'}",
                 f"MainThreadAction: {audit.get('mainThreadAction')}",
                 f"mayOverrideVerifier: {str(audit.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## DS Routing",
+                "",
+                f"Recommendation: {(audit.get('dsRouting') or {}).get('recommendation') or '-'}",
+                f"Trigger: {(audit.get('dsRouting') or {}).get('trigger') or '-'}",
+                f"Role: {(audit.get('dsRouting') or {}).get('role') or '-'}",
+                f"Model: {(audit.get('dsRouting') or {}).get('model') or '-'}",
+                f"AutomaticDispatch: {str((audit.get('dsRouting') or {}).get('automaticDispatch')).lower()}",
+                f"mayOverrideVerifier: {str((audit.get('dsRouting') or {}).get('mayOverrideVerifier')).lower()}",
                 "",
                 "## Missing Gates",
                 "",
@@ -411,7 +422,7 @@ def build_workflow_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
         main_action = "dispatch_missing_review_gates"
     else:
         main_action = "run_workflow_verifier"
-    return {
+    audit = {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
         "invocationContract": INVOCATION_CONTRACT,
         "command": "ccstatus audit",
@@ -441,6 +452,8 @@ def build_workflow_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
         "mayOverrideVerifier": False,
         "updatedAt": now_iso(),
     }
+    audit["dsRouting"] = workflow_audit_ds_routing(audit)
+    return audit
 
 
 def write_workflow_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None = None) -> tuple[Path, Path]:
@@ -462,6 +475,15 @@ def write_workflow_audit_artifacts(audit: dict[str, Any], artifact_root_value: s
                 f"AcceptanceAllowed: {str(audit.get('acceptanceAllowed')).lower()}",
                 f"MainThreadAction: {audit.get('mainThreadAction')}",
                 f"mayOverrideVerifier: {str(audit.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## DS Routing",
+                "",
+                f"Recommendation: {(audit.get('dsRouting') or {}).get('recommendation') or '-'}",
+                f"Trigger: {(audit.get('dsRouting') or {}).get('trigger') or '-'}",
+                f"Role: {(audit.get('dsRouting') or {}).get('role') or '-'}",
+                f"Model: {(audit.get('dsRouting') or {}).get('model') or '-'}",
+                f"AutomaticDispatch: {str((audit.get('dsRouting') or {}).get('automaticDispatch')).lower()}",
+                f"mayOverrideVerifier: {str((audit.get('dsRouting') or {}).get('mayOverrideVerifier')).lower()}",
                 "",
                 "## Failed Runs",
                 "",

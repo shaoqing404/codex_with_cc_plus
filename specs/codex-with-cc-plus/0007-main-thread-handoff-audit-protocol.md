@@ -39,11 +39,12 @@ Implemented in this phase:
 - hook fallback context for `ccstatus preflight`, `WAITING`, `REFUSED`,
   `RUNNING_DEAD_PROCESS`, audit handoff, and DS advisory-only boundaries;
 - read-only cc-switch provider adapter for CLI discovery and redacted desktop
-  state inspection.
+  state inspection;
+- local zero-token `dsRouting` plans in run/workflow audit packages.
 
 Not yet implemented:
 
-- automatic DS routing for P1/P2 orchestration assistance.
+- automatic DS model invocation for P1/P2 orchestration assistance.
 
 ## Role Personas
 
@@ -612,8 +613,9 @@ Candidate implementation:
 
 ### P1: DS Boundary And Routing
 
-Status: boundary implemented in `delegate_to_openai_compatible_report`; automatic
-post-execution routing remains a future refinement.
+Status: boundary implemented in `delegate_to_openai_compatible_report`; local
+zero-token routing plans are implemented in `ccstatus audit`; automatic DS model
+invocation remains a future refinement.
 
 Standardize DS as an advisory friction reducer.
 
@@ -633,6 +635,20 @@ Implemented artifact boundary:
   `canAcceptWorkflowResults=false`;
 - report artifacts must include the matching boundary lines in `Findings`; the
   runner injects them when the model omits them.
+
+Implemented routing plan:
+
+- `ccstatus audit -RunId` and `ccstatus audit -WorkflowId` include `dsRouting`;
+- `dsRouting.recommendation` is `recommended`, `optional`, or `not_recommended`;
+- execution-layer failures, missing/invalid reports, deterministic verifier
+  failures, and business failures recommend a report-only `forensic-analyst`;
+- missing review/final-verifier gates do not recommend DS because the next step
+  is deterministic gate dispatch;
+- accepted workflows do not recommend DS because DS cannot add acceptance
+  authority;
+- all routing plans keep `automaticDispatch=false`, `advisoryOnly=true`,
+  `mayOverrideValidator=false`, `mayOverrideVerifier=false`,
+  `canDispatchWorkerRuns=false`, and `canAcceptWorkflowResults=false`.
 
 ### P2: PageIndex Failure Fixture
 

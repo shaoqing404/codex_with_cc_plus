@@ -316,6 +316,12 @@ gates, should rerun, or should diagnose an execution-layer failure.
 `ccstatus audit -WorkflowId <workflow-id> --json` writes
 `audit_<WorkflowId>.json/.md` and rolls up run audits, failed runs, running states,
 missing gates, final workflow acceptance, and the recommended main-thread action.
+Run and workflow audit packages include `dsRouting`, a local zero-token routing
+plan that says whether a report-only DS helper is recommended, optional, or not
+recommended. It may suggest a `forensic-analyst` or `report-worker` TaskFile, but
+it always keeps `automaticDispatch=false`, `advisoryOnly=true`, and
+`mayOverrideVerifier=false`; no DS model call is made unless the main thread or an
+explicit child-thread report-only task opts in.
 `verify_delegate_workflow.*` writes `verifier_audit_<WorkflowId>.json/.md` with
 deterministic gate results, verified runs, failed gate details, and
 `acceptanceAllowed`; this is verifier-owned evidence, not a replacement for
