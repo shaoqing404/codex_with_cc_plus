@@ -156,6 +156,31 @@
       "STALE": 0
     }
   },
+  "auditPackageSchema": {
+    "artifactPattern": "audit_<RunId>.json",
+    "markdownPattern": "audit_<RunId>.md",
+    "command": "ccstatus audit -RunId <run-id> -ArtifactRoot <artifact-root> --json",
+    "requiredFields": [
+      "auditType",
+      "runId",
+      "workflowId",
+      "workerClaim",
+      "reportValid",
+      "changedFilesInScope",
+      "testsDeclared",
+      "testsObserved",
+      "verifierPassed",
+      "missingGates",
+      "canEnterReview",
+      "acceptanceAllowed",
+      "failureLayer",
+      "executionLayerFailure",
+      "mainThreadAction",
+      "evidencePaths",
+      "mayOverrideVerifier"
+    ],
+    "acceptanceRule": "Audit packages summarize evidence for the main thread. They cannot override deterministic run/workflow verifiers and must keep mayOverrideVerifier=false."
+  },
   "workerRoles": [
     "planner",
     "implementer",

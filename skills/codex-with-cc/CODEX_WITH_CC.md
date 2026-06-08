@@ -269,6 +269,8 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
 - `stream_<RunId>.jsonl`
 - `trace_<RunId>.log`
 - `session-pools/<SessionKey>.json`
+- `audit_<RunId>.json/.md` when `ccstatus audit` is run for a canonical
+  main-thread audit package
 
 Use `verify_delegate_run.*` or `verify_delegate_artifacts.*` for each run, `ccsupervise.* -Wait` when a child thread needs to observe a live run, `verify_delegate_workflow.*` for the workflow aggregate, and `verify_delegate_chain.*` for multi-run session continuity checks. `verify_delegate_workflow.*` enforces review gates, the final-verifier gate, declared `-Tests` evidence for non-dry-run `DONE` reports, and non-overlapping parallel implementer scopes. The shared implementation lives under `scripts/*.py`; platform wrappers stay thin.
 
@@ -286,13 +288,17 @@ only changes whitelisted Claude settings fields, writes `runtime_<timestamp>.jso
 and records rollback evidence. Permission mode changes apply to delegate runner
 arguments, not to hidden global config.
 
-Use `ccstatus.* summary|claude|preflight|run|workflow` as the main-thread
+Use `ccstatus.* summary|claude|preflight|run|audit|workflow` as the main-thread
 decision surface. `ccruntime` answers what is configured; `ccstatus` answers
 whether Codex can safely dispatch or trust a worker right now. `ccstatus
 preflight --json` must return `dispatchAllowed=true` before implementation
 dispatch. If it returns `delegateStatus=REFUSED`, the framework must guide the
 human to install, configure, or restart Claude Code/OpenClaw/MiniMax instead of
 spending another worker run.
+`ccstatus audit -RunId <run-id> --json` writes `audit_<RunId>.json/.md` and answers
+whether the main thread can enter review, accept the result, must dispatch missing
+gates, should rerun, or should diagnose an execution-layer failure. Audit packages
+must keep `mayOverrideVerifier=false`.
 
 Use `ccindex.* build|list|show|export` for machine-level workflow indexing across
 project and user fallback artifact roots. Use `ccdash.* build|open` for a local

@@ -16,7 +16,7 @@ tracked below.
 
 Implemented in this phase:
 
-- `ccstatus summary|claude|preflight|run|workflow`;
+- `ccstatus summary|claude|preflight|run|audit|workflow`;
 - shared main-thread handoff helpers for `REFUSED`, `WAITING`, and terminal run
   summaries;
 - delegate preflight refusal before Claude Code startup when runtime readiness is
@@ -25,12 +25,13 @@ Implemented in this phase:
   `businessAcceptance=blocked`, `workerOutcome=FAIL`, `failureLayer`, and
   machine-readable handoff;
 - child-thread contract updates for `READY`, `REPORT_READY`, and `REFUSED`;
+- canonical `audit_<RunId>.json/.md` artifacts through `ccstatus audit`;
 - tests for unreachable local backend, active-run wait guidance, preflight
   refusal artifacts, and wrapper forwarding.
 
 Not yet implemented:
 
-- canonical `audit_<run-id>.json/.md` artifacts;
+- workflow-verifier-owned audit rollups across multiple runs;
 - automatic post-execution DS routing;
 - PageIndex socket/API failure fixture;
 - full provider adapter support for cc-switch desktop state.
@@ -369,6 +370,9 @@ Implemented subcommands:
   reachability, model handshake, and safe redacted settings.
 - `ccstatus run -RunId <id> --json`: one run's current state, worker liveness,
   failure layer, report validity, acceptance allowance, and next action.
+- `ccstatus audit -RunId <id> --json`: write `audit_<RunId>.json/.md` with
+  worker claim, verifier state, missing gates, failure layer, evidence paths, and
+  main-thread action.
 - `ccstatus workflow -WorkflowId <id> --json`: workflow-level gate state and
   missing review/audit requirements.
 - `ccstatus preflight --json`: first-use gate that refuses framework dispatch when
@@ -508,8 +512,8 @@ the human to install/configure/restart Claude Code/OpenClaw/MiniMax, and prevent
 
 ### P0: Main-Thread Handoff Schema
 
-Status: implemented for `REFUSED`, `WAITING`, and terminal run summaries; audit
-artifact formalization remains P1.
+Status: implemented for `REFUSED`, `WAITING`, terminal run summaries, and
+canonical run audit artifacts.
 
 Deliver a shared schema used by delegate, supervisor, verifier, DS report workers,
 and future dashboard/status tools.
@@ -546,8 +550,8 @@ All thresholds must be configurable.
 
 ### P0: Audit Package
 
-Status: partially implemented through `ccstatus run` and `ccstatus workflow`;
-canonical audit artifacts remain P1.
+Status: implemented for individual runs through `ccstatus audit`; workflow-level
+rollup audits remain a future refinement.
 
 Generate a compact audit package after worker completion or failure.
 
@@ -569,6 +573,9 @@ Implement `ccstatus` as the main-thread decision surface for runtime readiness,
 live run state, workflow gates, and failure-layer explanation.
 
 ### P1: Child-Thread Contract Enforcement
+
+Status: partially implemented through `ccstatus audit`, contract schema updates,
+and child-thread refusal protocol. Additional hook guidance remains open.
 
 Make the child-thread return protocol harder to violate.
 

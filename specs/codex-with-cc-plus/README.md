@@ -50,7 +50,7 @@ Failure branches:
   groups with explicit protection reasons.
 - `ccruntime status|doctor|plan-switch|apply-switch`: inspect Claude Code runtime
   state and apply confirmed whitelisted settings changes with audit artifacts.
-- `ccstatus summary|claude|preflight|run|workflow`: main-thread decision surface
+- `ccstatus summary|claude|preflight|run|audit|workflow`: main-thread decision surface
   for dispatch readiness, live run state, failure layer, and acceptance guidance.
 - `ccindex build|list|show|export`: build machine-level artifact indexes with
   confidence, provenance, model, permission, and run-state metadata.
@@ -66,8 +66,9 @@ Failure branches:
   runtime control, machine index, and static dashboard phase.
 - `0007-main-thread-handoff-audit-protocol.md`: implemented P0 main-thread
   handoff schema, first-use Claude Code reliability gate, wait recommendations,
-  child-thread refusal protocol, and `ccstatus`; tracks P1/P2 audit artifacts, DS
-  routing, and PageIndex failure fixture follow-ups.
+  child-thread refusal protocol, `ccstatus`, and run-level audit artifacts; tracks
+  P1/P2 DS routing, workflow audit rollups, and PageIndex failure fixture
+  follow-ups.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

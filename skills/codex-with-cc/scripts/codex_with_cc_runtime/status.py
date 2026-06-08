@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import socket
+from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
 from urllib.parse import urlparse
@@ -12,8 +13,11 @@ from .common import ARTIFACT_SCHEMA_VERSION, INVOCATION_CONTRACT, DelegateError,
 from .doctor import build_doctor_report
 from .handoff import refusal_handoff, terminal_handoff, wait_handoff
 from .index import build_index
+from .io_utils import load_json, read_text, write_json, write_text
+from .reports import report_section
 from .runtime_control import build_runtime_status
 from .supervision import build_run_supervisor_summary, build_workflow_watch_summary
+from .workflow import REQUIRED_IMPLEMENTER_REVIEWS, workflow_path
 
 
 UNAVAILABLE_MESSAGE = (
@@ -172,6 +176,170 @@ def build_run_status(ns: argparse.Namespace) -> dict[str, Any]:
     }
 
 
+def _path_from_meta(summary: dict[str, Any], key: str) -> Path | None:
+    artifacts = summary.get("artifacts") if isinstance(summary.get("artifacts"), dict) else {}
+    meta = artifacts.get(key) if isinstance(artifacts.get(key), dict) else {}
+    path = meta.get("path")
+    return Path(str(path)).resolve() if path else None
+
+
+def _load_json_path(path: Path | None) -> dict[str, Any]:
+    if path and path.exists():
+        try:
+            data = load_json(path)
+            return data if isinstance(data, dict) else {}
+        except Exception:
+            return {}
+    return {}
+
+
+def _missing_workflow_gates(workflow: dict[str, Any], task_id: str, role: str) -> list[str]:
+    if not workflow:
+        return ["workflow_artifact"]
+    final_acceptance = workflow.get("finalAcceptance") if isinstance(workflow.get("finalAcceptance"), dict) else {}
+    missing: list[str] = []
+    task = (workflow.get("tasks") or {}).get(task_id) if isinstance(workflow.get("tasks"), dict) else None
+    if role == "implementer":
+        reviews = task.get("reviews") if isinstance(task, dict) and isinstance(task.get("reviews"), dict) else {}
+        missing.extend(f"{kind}_review" for kind in REQUIRED_IMPLEMENTER_REVIEWS if not isinstance(reviews.get(kind), dict))
+    if final_acceptance.get("status") != "accepted":
+        missing.append("workflow_final_acceptance")
+    return missing
+
+
+def _tests_observed(report_text: str, declared_tests: list[str]) -> bool:
+    verification = report_section(report_text, "Verification")
+    if not declared_tests:
+        return False
+    lowered = verification.lower()
+    return all(test.lower() in lowered for test in declared_tests)
+
+
+def _changed_files_in_scope(report_text: str, scope: list[str]) -> bool:
+    changed = report_section(report_text, "Changed Files")
+    if not changed.strip():
+        return False
+    lowered = changed.lower()
+    if "none" in lowered:
+        return True
+    if not scope:
+        return False
+    return all(any(item.strip() and item.strip() in line for item in scope) for line in changed.splitlines() if line.strip() and not line.strip().startswith("- none"))
+
+
+def build_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
+    summary = build_run_supervisor_summary(ns.run_id, ns.artifact_root, ns.stale_after_seconds, verify=not ns.no_verify)
+    artifact_root = Path(str((summary.get("artifacts") or {}).get("root") or resolve_artifact_root(ns.artifact_root, run_id=ns.run_id))).resolve()
+    config_path = _path_from_meta(summary, "config")
+    status_path = _path_from_meta(summary, "status")
+    output_path = _path_from_meta(summary, "output")
+    config = _load_json_path(config_path)
+    status = _load_json_path(status_path)
+    report_text = read_text(output_path) if output_path and output_path.exists() else ""
+    workflow_id = str(summary.get("workflowId") or config.get("workflowId") or status.get("workflowId") or "")
+    task_id = str(summary.get("taskId") or config.get("taskId") or status.get("taskId") or "")
+    role = str(summary.get("role") or config.get("role") or status.get("role") or "")
+    workflow_file = workflow_path(artifact_root, workflow_id) if workflow_id else artifact_root / "workflow_missing.json"
+    workflow = _load_json_path(workflow_file)
+    report = summary.get("report") if isinstance(summary.get("report"), dict) else {}
+    verifier = summary.get("deterministicVerifierResult") if isinstance(summary.get("deterministicVerifierResult"), dict) else {}
+    declared_tests = config.get("tests") if isinstance(config.get("tests"), list) else []
+    scope = config.get("scope") if isinstance(config.get("scope"), list) else []
+    missing_gates = _missing_workflow_gates(workflow, task_id, role)
+    worker_claim = str(report.get("status") or "")
+    failure_layer = str(status.get("failureLayer") or config.get("failureLayer") or "")
+    execution_layer_failure = bool(failure_layer) or str(status.get("failureDisposition") or "") == "NEED_HUMAN_INTERVENTION"
+    verifier_passed = verifier.get("status") == "passed"
+    report_valid = bool(report.get("exists")) and bool(worker_claim)
+    can_enter_review = report_valid and verifier_passed and worker_claim == "DONE" and not execution_layer_failure
+    acceptance_allowed = can_enter_review and not missing_gates and (workflow.get("finalAcceptance") or {}).get("status") == "accepted"
+    main_action = "accept_or_commit" if acceptance_allowed else "dispatch_missing_review_gates" if can_enter_review and missing_gates else "run_runtime_diagnostics" if execution_layer_failure else "rerun_or_forensics" if not verifier_passed else "review_worker_report"
+    audit = {
+        "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+        "invocationContract": INVOCATION_CONTRACT,
+        "command": "ccstatus audit",
+        "auditType": "codex-with-cc-run-audit",
+        "runId": ns.run_id,
+        "workflowId": workflow_id,
+        "taskId": task_id,
+        "role": role,
+        "observedState": summary.get("state"),
+        "runStatus": summary.get("runStatus"),
+        "workerClaim": worker_claim,
+        "reportValid": report_valid,
+        "changedFilesInScope": _changed_files_in_scope(report_text, scope),
+        "testsDeclared": bool(declared_tests),
+        "declaredTests": declared_tests,
+        "testsObserved": _tests_observed(report_text, declared_tests),
+        "verifierPassed": verifier_passed,
+        "deterministicVerifierResult": verifier,
+        "missingGates": missing_gates,
+        "canEnterReview": can_enter_review,
+        "acceptanceAllowed": acceptance_allowed,
+        "failureLayer": failure_layer,
+        "executionLayerFailure": execution_layer_failure,
+        "businessFailure": worker_claim in {"FAIL", "BLOCKED", "NEEDS_CONTEXT", "DONE_WITH_CONCERNS"} and not execution_layer_failure,
+        "mainThreadAction": main_action,
+        "nextCommand": "ccstatus claude --json" if execution_layer_failure else f"verify_delegate_workflow -WorkflowId {workflow_id} -ArtifactRoot {artifact_root}",
+        "confidence": "high" if report_valid and verifier.get("status") in {"passed", "failed"} else "medium",
+        "evidencePaths": {
+            "config": str(config_path or ""),
+            "status": str(status_path or ""),
+            "report": str(output_path or ""),
+            "workflow": str(workflow_file),
+            "trace": str(_path_from_meta(summary, "trace") or ""),
+            "stream": str(_path_from_meta(summary, "stream") or ""),
+        },
+        "provenance": {
+            "sources": ["config", "status", "report", "workflow", "supervisor"],
+            "generatedReasoning": ["mainThreadAction", "missingGates", "canEnterReview", "acceptanceAllowed"],
+        },
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "updatedAt": now_iso(),
+    }
+    return audit
+
+
+def write_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None = None) -> tuple[Path, Path]:
+    root = resolve_artifact_root(artifact_root_value, run_id=str(audit["runId"]))
+    run_id = str(audit["runId"])
+    json_path = root / f"audit_{run_id}.json"
+    md_path = root / f"audit_{run_id}.md"
+    audit["auditPath"] = str(json_path)
+    audit["auditMarkdownPath"] = str(md_path)
+    write_json(json_path, audit)
+    write_text(
+        md_path,
+        "\n".join(
+            [
+                "# Codex With CC Run Audit",
+                "",
+                f"RunId: {run_id}",
+                f"WorkflowId: {audit.get('workflowId')}",
+                f"ObservedState: {audit.get('observedState')}",
+                f"WorkerClaim: {audit.get('workerClaim')}",
+                f"CanEnterReview: {str(audit.get('canEnterReview')).lower()}",
+                f"AcceptanceAllowed: {str(audit.get('acceptanceAllowed')).lower()}",
+                f"FailureLayer: {audit.get('failureLayer') or '-'}",
+                f"MainThreadAction: {audit.get('mainThreadAction')}",
+                f"mayOverrideVerifier: {str(audit.get('mayOverrideVerifier')).lower()}",
+                "",
+                "## Missing Gates",
+                "",
+                "\n".join(f"- {item}" for item in audit.get("missingGates") or []) or "- none",
+                "",
+                "## Evidence Paths",
+                "",
+                "\n".join(f"- {key}: {value}" for key, value in (audit.get("evidencePaths") or {}).items()),
+                "",
+            ]
+        )
+        + "\n",
+    )
+    return json_path, md_path
+
+
 def build_workflow_status(ns: argparse.Namespace) -> dict[str, Any]:
     summary = build_workflow_watch_summary(ns.workflow_id, ns.artifact_root)
     final_acceptance = summary.get("finalAcceptance") if isinstance(summary.get("finalAcceptance"), dict) else {}
@@ -255,6 +423,9 @@ def run_ccstatus(ns: argparse.Namespace) -> int:
         report = build_preflight_status(ns)
     elif command == "run":
         report = build_run_status(ns)
+    elif command == "audit":
+        report = build_audit_package(ns)
+        write_audit_artifacts(report, ns.artifact_root)
     elif command == "workflow":
         report = build_workflow_status(ns)
     else:

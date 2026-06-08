@@ -388,6 +388,48 @@ def test_ccstatus_run_returns_wait_handoff_for_active_run() -> None:
         assert payload["acceptanceAllowed"] is False
 
 
+def test_ccstatus_audit_writes_canonical_package_for_reviewable_run() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_audit_") as tmp:
+        root = Path(tmp)
+        artifact_root = root / "artifacts"
+        task = root / "task.md"
+        task.write_text(compliant_task("audit reviewable dry run"), encoding="utf-8")
+        delegated = run_script(
+            DELEGATE,
+            "-TaskFile",
+            str(task),
+            "-WorkflowId",
+            "wf-audit",
+            "-TaskId",
+            "task-audit",
+            "-Role",
+            "implementer",
+            "-ArtifactRoot",
+            str(artifact_root),
+            "-SessionKey",
+            "audit-session",
+            "-DryRun",
+            env={"CODEX_CLAUDE_CHILD_THREAD": "1"},
+        )
+        assert delegated.returncode == 0, delegated.stdout + delegated.stderr
+        run_id = run_id_from_output(delegated.stdout)
+
+        audit = run_script(CCSTATUS, "audit", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
+
+        assert audit.returncode == 0, audit.stdout + audit.stderr
+        payload = json.loads(audit.stdout)
+        assert payload["auditType"] == "codex-with-cc-run-audit"
+        assert payload["workerClaim"] == "DONE"
+        assert payload["verifierPassed"] is True
+        assert payload["canEnterReview"] is True
+        assert payload["acceptanceAllowed"] is False
+        assert "spec_review" in payload["missingGates"]
+        assert payload["mayOverrideVerifier"] is False
+        assert Path(payload["auditPath"]).exists()
+        assert Path(payload["auditMarkdownPath"]).exists()
+        assert json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))["runId"] == run_id
+
+
 def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_delegate_refusal_") as tmp:
         root = Path(tmp)
@@ -429,3 +471,11 @@ def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
         assert config_json["businessAcceptance"] == "blocked"
         assert "Claude Code runtime preflight failed" in output
         assert (artifact_root / "workflow_wf-refused.json").exists()
+
+        audit = run_script(CCSTATUS, "audit", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
+        assert audit.returncode == 0, audit.stdout + audit.stderr
+        audit_json = json.loads(audit.stdout)
+        assert audit_json["executionLayerFailure"] is True
+        assert audit_json["failureLayer"] == "claude_api_socket"
+        assert audit_json["mainThreadAction"] == "run_runtime_diagnostics"
+        assert audit_json["acceptanceAllowed"] is False
