@@ -72,12 +72,13 @@ Runner separation:
 - Dispatch planning: `Dispatch Planner` uses DeepSeek V4-Pro to draft workflow plans, TaskFiles, and risk notes before dispatch. It is an authoring assistant only; it must not execute shell commands, edit business files, override the local validator, or dispatch implementation work.
 - Run observation: `Run Supervisor` is a Codex child-thread orchestration role. It supervises one delegated run, observes that run's artifacts, runs deterministic verification, and returns concise status to the main thread. It may observe the supervised run's artifacts, but it must not observe its own live artifacts or recursively create unassigned delegate runs.
 - A child thread must not report a delegated run as finished merely because artifact paths were printed or status is `running`. If the worker report is missing or the status is non-terminal, run `ccsupervise -Wait` or keep polling until the run is `RUN_VERIFIED`, `REPORT_READY`, `FAILED`, `STALE`, or `RUNNING_DEAD_PROCESS`. Treat `RUNNING_ACTIVE` and `STARTING` as wait states only.
+- If `ccstatus preflight` or `delegate_to_claude` returns `DelegateStatus: REFUSED`, stop immediately. This is a framework/runtime precondition failure, not business-task progress. Return the refusal handoff to the main thread and do not call Claude Code again until `ccstatus claude --json` reports dispatchAllowed=true.
 - Failure forensics: `Forensic Analyst` uses DeepSeek V4-Pro only after a deterministic verifier failure or explicit human request. It explains the failure, classifies risk, and recommends next action with `mayOverrideVerifier=false`.
 
 Child-thread return protocol:
 
 ```text
-DelegateStatus: <DISPATCHED|WAITING|TERMINAL|FAILED>
+DelegateStatus: <READY|DISPATCHED|WAITING|REPORT_READY|TERMINAL|REFUSED|FAILED>
 RunId: <run-id>
 WorkflowId: <workflow-id>
 TaskId: <task-id>
@@ -90,6 +91,10 @@ ObservedState: <STARTING|RUNNING_ACTIVE|RUNNING_QUIET|REPORT_READY|FAILED|STALE|
 Verifier: <not-run|passed|failed>
 Supervisor: <not-run|passed|failed>
 MainThreadAction: <wait-with-ccsupervise|verify-run|review-report|rerun-or-forensics>
+AcceptanceAllowed: <true|false>
+RecommendedWaitSeconds: <0|60|300>
+NextCommand: <ccstatus/ccsupervise/verify command>
+Confidence: <high|medium|low>
 ```
 
 When `ObservedState` is `STARTING`, `RUNNING_ACTIVE`, or `RUNNING_QUIET`, the only
@@ -101,6 +106,19 @@ RunId: <run-id>
 ObservedState: RUNNING_ACTIVE
 MainThreadAction: run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait
 No worker report is acceptable yet.
+```
+
+When `DelegateStatus` is `REFUSED`, the only valid child-thread action is to
+return the refusal to the main thread. Example:
+
+```text
+DelegateStatus: REFUSED
+ObservedState: PRE_FLIGHT_FAILED
+FailureLayer: claude_code_runtime_unavailable
+AcceptanceAllowed: false
+MainThreadAction: install_or_repair_claude_code
+NextCommand: ccstatus claude --json
+No worker implementation was attempted.
 ```
 
 The main thread must treat that response as a checkpoint, not as task completion.
@@ -267,6 +285,14 @@ read-first and redact secrets. `apply-switch` requires `-ConfirmRuntimeChange`,
 only changes whitelisted Claude settings fields, writes `runtime_<timestamp>.json/.md`,
 and records rollback evidence. Permission mode changes apply to delegate runner
 arguments, not to hidden global config.
+
+Use `ccstatus.* summary|claude|preflight|run|workflow` as the main-thread
+decision surface. `ccruntime` answers what is configured; `ccstatus` answers
+whether Codex can safely dispatch or trust a worker right now. `ccstatus
+preflight --json` must return `dispatchAllowed=true` before implementation
+dispatch. If it returns `delegateStatus=REFUSED`, the framework must guide the
+human to install, configure, or restart Claude Code/OpenClaw/MiniMax instead of
+spending another worker run.
 
 Use `ccindex.* build|list|show|export` for machine-level workflow indexing across
 project and user fallback artifact roots. Use `ccdash.* build|open` for a local

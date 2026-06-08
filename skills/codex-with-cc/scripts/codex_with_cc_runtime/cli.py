@@ -18,6 +18,7 @@ from .selftests import run_test_runtime, run_test_session_pool
 from .supervision import run_ccspec, run_ccsupervise, run_ccwatch
 from .task_contract import run_validate_task
 from .runtime_control import run_ccruntime
+from .status import run_ccstatus
 from .ccviz_parser import list_workflows, get_workflow_details
 from .ccviz_renderer import render_list, render_show, render_audit
 
@@ -178,6 +179,33 @@ def build_parser() -> argparse.ArgumentParser:
         runtime_command.add_argument("-ConfirmRuntimeChange", dest="confirm_runtime_change", action="store_true")
         runtime_command.add_argument("--json", dest="json", action="store_true")
         runtime_command.set_defaults(func=run_ccruntime)
+
+    ccstatus = sub.add_parser("ccstatus", allow_abbrev=False)
+    ccstatus_sub = ccstatus.add_subparsers(dest="ccstatus_command", required=True)
+    for command_name in ("summary", "claude", "preflight"):
+        command = ccstatus_sub.add_parser(command_name, allow_abbrev=False)
+        command.add_argument("-ArtifactRoot", dest="artifact_root", action="append", default=[])
+        command.add_argument("-ProjectRoot", dest="project_root", action="append", default=[])
+        command.add_argument("-AllProjects", dest="all_projects", action="store_true")
+        command.add_argument("-ProjectMatch", dest="project_match", action="append", default=[])
+        command.add_argument("-ClaudeSettingsPath", dest="claude_settings_path")
+        command.add_argument("-ClaudeSmoke", dest="claude_smoke", action="store_true")
+        command.add_argument("-TimeoutSeconds", dest="timeout_seconds", type=int, default=10)
+        command.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+        command.add_argument("--json", dest="json", action="store_true")
+        command.set_defaults(func=run_ccstatus)
+    ccstatus_run = ccstatus_sub.add_parser("run", allow_abbrev=False)
+    ccstatus_run.add_argument("-RunId", dest="run_id", required=True)
+    ccstatus_run.add_argument("-ArtifactRoot", dest="artifact_root")
+    ccstatus_run.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+    ccstatus_run.add_argument("--json", dest="json", action="store_true")
+    ccstatus_run.add_argument("--no-verify", dest="no_verify", action="store_true")
+    ccstatus_run.set_defaults(func=run_ccstatus)
+    ccstatus_workflow = ccstatus_sub.add_parser("workflow", allow_abbrev=False)
+    ccstatus_workflow.add_argument("-WorkflowId", dest="workflow_id", required=True)
+    ccstatus_workflow.add_argument("-ArtifactRoot", dest="artifact_root")
+    ccstatus_workflow.add_argument("--json", dest="json", action="store_true")
+    ccstatus_workflow.set_defaults(func=run_ccstatus)
 
     # ccviz subcommands
     ccviz = sub.add_parser("ccviz", allow_abbrev=False)

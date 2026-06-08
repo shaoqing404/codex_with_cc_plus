@@ -410,7 +410,10 @@ def test_missing_claude_writes_complete_verifiable_failure_artifacts() -> None:
 
         assert verified.returncode == 0, verified.stdout + verified.stderr
         output = (artifact_root / f"claude_{run_id}.md").read_text(encoding="utf-8")
-        assert "STARTUP_FAILURE: Claude Code CLI was not found" in output
+        status = json.loads((artifact_root / f"status_{run_id}.json").read_text(encoding="utf-8"))
+        assert "PREFLIGHT_REFUSED:" in output
+        assert status["handoff"]["delegateStatus"] == "REFUSED"
+        assert status["businessAcceptance"] == "blocked"
 
 
 def test_structured_output_file_allows_unstructured_final_summary() -> None:

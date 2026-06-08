@@ -21,6 +21,7 @@ from .paths import project_artifact_root, repo_root, user_artifact_root, workflo
 from .prompts import build_prompt
 from .reports import build_report_repair_prompt, get_output_resolution, path_has_required_report_headings
 from .sessions import SessionLease, acquire_session_lease, effective_session_key, normalize_delegate_list, release_session_lease, reset_session_lease_for_fresh_session, safe_session_key, task_fingerprint
+from .status import UNAVAILABLE_MESSAGE, build_preflight_status
 from .task_contract import validate_task_file_contract
 from .workflow import normalize_role, safe_task_id, update_workflow_record, workflow_path
 
@@ -322,6 +323,109 @@ def complete_startup_failure(
     write_json(status_path, status)
 
 
+def complete_preflight_refusal(
+    config_path: Path,
+    status_path: Path,
+    output_path: Path,
+    raw_stream_path: Path,
+    trace_path: Path,
+    config: dict[str, Any],
+    status: dict[str, Any],
+    role: str,
+    preflight: dict[str, Any],
+) -> None:
+    handoff = preflight.get("handoff") if isinstance(preflight.get("handoff"), dict) else {}
+    failure_layer = str(preflight.get("failureLayer") or handoff.get("failureLayer") or "claude_code_runtime_unavailable")
+    failure = f"PREFLIGHT_REFUSED: {handoff.get('userMessage') or UNAVAILABLE_MESSAGE}"
+    write_text(
+        output_path,
+        f"""Status
+FAIL
+
+Role
+{role}
+
+Summary
+Claude Code runtime preflight failed before worker startup.
+
+Changed Files
+None
+
+Verification
+- not run; framework preflight refused to start Claude Code
+
+Findings
+- failureLayer: {failure_layer}
+- dispatchAllowed: false
+- acceptanceAllowed: false
+- mainThreadAction: {handoff.get('mainThreadAction') or 'install_or_repair_claude_code'}
+- childThreadAction: {handoff.get('childThreadAction') or 'do_not_call_delegate_to_claude'}
+
+Final Result
+FAIL
+{failure}
+
+Risks Or Follow-ups
+- Run {handoff.get('nextCommand') or 'ccstatus claude --json'} after installing, configuring, or restarting Claude Code/OpenClaw/MiniMax.
+""",
+    )
+    if not raw_stream_path.exists():
+        write_text(raw_stream_path, "")
+    write_text(trace_path, f"[preflight-refused] {failure}\n")
+    attempt = {
+        "attempt": 1,
+        "sessionId": "preflight-refused",
+        "resume": False,
+        "retryReason": None,
+        "exitCode": 1,
+        "sawAssistantText": False,
+        "sawResultSuccess": False,
+        "capturedFinalResult": True,
+        "outputWasNormalized": False,
+        "sawStaleSessionText": False,
+        "sawStreamJsonVerboseError": False,
+        "runnerType": RUNNER_TYPE,
+    }
+    common = {
+        "status": "failed",
+        "outputBytes": output_path.stat().st_size,
+        "exitCode": 1,
+        "attemptCount": 1,
+        "retryCount": 0,
+        "failureDisposition": "NEED_HUMAN_INTERVENTION",
+        "failureSummary": failure,
+        "failureLayer": failure_layer,
+        "workerOutcome": "FAIL",
+        "businessAcceptance": "blocked",
+        "humanActionRequired": True,
+        "businessFilesChanged": False,
+        "mayOverrideImplementation": False,
+        "handoff": handoff,
+    }
+    status.update({**common, "attempts": [attempt]})
+    config.update(
+        {
+            "initialSessionId": "preflight-refused",
+            "initialResume": False,
+            "sessionId": "preflight-refused",
+            "resume": False,
+            "attemptCount": 1,
+            "retryCount": 0,
+            "failureDisposition": "NEED_HUMAN_INTERVENTION",
+            "failureSummary": failure,
+            "failureLayer": failure_layer,
+            "workerOutcome": "FAIL",
+            "businessAcceptance": "blocked",
+            "humanActionRequired": True,
+            "businessFilesChanged": False,
+            "mayOverrideImplementation": False,
+            "handoff": handoff,
+        }
+    )
+    write_json(config_path, config)
+    write_json(status_path, status)
+
+
 
 def run_delegate(ns: argparse.Namespace) -> int:
     if os.environ.get(CHILD_MARKER_NAME) != CHILD_MARKER_VALUE:
@@ -466,6 +570,41 @@ def run_delegate(ns: argparse.Namespace) -> int:
     write_text(prompt_path, prompt)
     write_json(config_path, config)
     write_json(status_path, status)
+
+    if not ns.dry_run:
+        preflight = build_preflight_status(ns)
+        if not preflight.get("dispatchAllowed"):
+            complete_preflight_refusal(config_path, status_path, output_path, raw_stream_path, trace_path, config, status, role, preflight)
+            with contextlib.suppress(Exception):
+                update_workflow_record(
+                    artifact_root,
+                    workflow_id,
+                    task_id,
+                    role,
+                    scope,
+                    tests,
+                    depends_on,
+                    run_id,
+                    config_path,
+                    status_path,
+                    output_path,
+                    prompt_path,
+                    raw_stream_path,
+                    trace_path,
+                    "failed",
+                    safe_task_id(ns.review_for_task_id) if ns.review_for_task_id else None,
+                    ns.review_kind,
+                    runner_type=RUNNER_TYPE,
+                )
+            print(f"RunId: {run_id}")
+            print(f"Artifact Root: {artifact_root}")
+            print(f"Output: {output_path}")
+            print(f"Status: {status_path}")
+            print(f"Trace: {trace_path}")
+            print(f"Raw Stream: {raw_stream_path}")
+            handoff = preflight.get("handoff") if isinstance(preflight.get("handoff"), dict) else {}
+            print("PreflightHandoff: " + json.dumps(handoff or preflight, ensure_ascii=False))
+            raise DelegateError(str(handoff.get("userMessage") or UNAVAILABLE_MESSAGE))
 
     delegate_lock: FileLock | None = None
     lease: SessionLease | None = None

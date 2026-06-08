@@ -98,9 +98,12 @@
       "MainThreadAction"
     ],
     "delegateStatusValues": [
+      "READY",
       "DISPATCHED",
       "WAITING",
+      "REPORT_READY",
       "TERMINAL",
+      "REFUSED",
       "FAILED"
     ],
     "waitingStates": [
@@ -116,6 +119,8 @@
       "RUNNING_DEAD_PROCESS"
     ],
     "mainThreadActions": {
+      "READY": "dispatch worker through delegate_to_claude after TaskFile validation",
+      "REFUSED": "do not call delegate_to_claude; run ccstatus claude --json or repair Claude Code runtime",
       "STARTING": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
       "RUNNING_ACTIVE": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
       "RUNNING_QUIET": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
@@ -125,7 +130,31 @@
       "STALE": "treat as interrupted then rerun or trigger forensics",
       "RUNNING_DEAD_PROCESS": "treat as interrupted then rerun or trigger forensics"
     },
-    "completionRule": "Printed artifact paths, status=running, STARTING, RUNNING_ACTIVE, and RUNNING_QUIET are checkpoints only. They are not worker completion and cannot advance review or acceptance."
+    "completionRule": "Printed artifact paths, status=running, STARTING, RUNNING_ACTIVE, RUNNING_QUIET, READY, and REFUSED are not worker completion. REFUSED is a terminal framework precondition failure with acceptanceAllowed=false; it must be reported back to the main thread instead of retried blindly."
+  },
+  "mainThreadHandoffSchema": {
+    "requiredFields": [
+      "delegateStatus",
+      "observedState",
+      "acceptanceAllowed",
+      "mainThreadAction",
+      "recommendedWaitSeconds",
+      "nextCommand",
+      "confidence",
+      "failureLayer",
+      "humanInterventionRequired",
+      "evidencePaths",
+      "mayOverrideValidator",
+      "mayOverrideVerifier"
+    ],
+    "acceptanceRule": "acceptanceAllowed=true is required before the main thread can present delegated work as accepted. Worker claims, DS reports, and dashboard records cannot override deterministic verifiers.",
+    "recommendedWaitPolicy": {
+      "STARTING": 60,
+      "RUNNING_ACTIVE": 60,
+      "RUNNING_QUIET": 300,
+      "RUNNING_DEAD_PROCESS": 0,
+      "STALE": 0
+    }
   },
   "workerRoles": [
     "planner",

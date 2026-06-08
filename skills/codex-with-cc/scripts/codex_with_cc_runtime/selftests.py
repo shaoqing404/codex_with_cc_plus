@@ -48,6 +48,18 @@ def run_delegate_subprocess(args: list[str], env: dict[str, str] | None = None) 
     )
 
 
+def fake_runtime_env(temp_root: Path, fake_bin: Path) -> dict[str, str]:
+    home = temp_root / "fake-runtime-home"
+    settings = home / ".claude" / "settings.json"
+    settings.parent.mkdir(parents=True, exist_ok=True)
+    write_text(settings, json.dumps({"model": "opus", "env": {}}))
+    return {
+        CHILD_MARKER_NAME: "1",
+        "HOME": str(home),
+        "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
+    }
+
+
 
 def make_fake_claude_bin(temp_root: Path, body: str) -> Path:
     bin_dir = temp_root / "fake-claude-bin"
@@ -319,7 +331,7 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             "fake-claude-unstructured-bin",
         )
         run_root = temp_root / "unstructured"
-        env = {CHILD_MARKER_NAME: "1", "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        env = fake_runtime_env(temp_root, fake_bin)
         run = run_delegate_subprocess(
             [
                 *delegate_task_args(temp_root, "unstructured-rejection", "unstructured success rejection probe", "implementer"),
@@ -382,7 +394,7 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             "fake-claude-newline-jsonl-bin",
         )
         newline_root = temp_root / "newline-jsonl"
-        newline_env = {CHILD_MARKER_NAME: "1", "PATH": f"{newline_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        newline_env = fake_runtime_env(temp_root, newline_fake_bin)
         newline_run = run_delegate_subprocess(
             [
                 *delegate_task_args(temp_root, "newline-jsonl-report", "newline JSONL report probe", "implementer"),
@@ -418,7 +430,7 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             "fake-claude-api-error-jsonl-bin",
         )
         api_error_root = temp_root / "api-error-jsonl"
-        api_error_env = {CHILD_MARKER_NAME: "1", "PATH": f"{api_error_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        api_error_env = fake_runtime_env(temp_root, api_error_fake_bin)
         api_error_run = run_delegate_subprocess(
             [
                 *delegate_task_args(temp_root, "api-error-report", "API error report probe", "implementer"),
@@ -512,7 +524,7 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             temp_root / "stale_api_retry_seen.txt",
             "fake-claude-stale-api-retry-bin",
         )
-        stale_env = {CHILD_MARKER_NAME: "1", "PATH": f"{stale_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        stale_env = fake_runtime_env(temp_root, stale_fake_bin)
         stale_retry = run_delegate_subprocess(
             [
                 *delegate_task_args(temp_root, "stale-api-retry-cleanup", "stale API retry cleanup probe", "implementer"),
@@ -599,7 +611,7 @@ def run_test_runtime(_: argparse.Namespace) -> int:
             temp_root / "unstructured_retry_seen.txt",
         )
         retry_root = temp_root / "unstructured-retry"
-        retry_env = {CHILD_MARKER_NAME: "1", "PATH": f"{retry_fake_bin}{os.pathsep}{os.environ.get('PATH', '')}"}
+        retry_env = fake_runtime_env(temp_root, retry_fake_bin)
         retry_run = run_delegate_subprocess(
             [
                 *delegate_task_args(temp_root, "unstructured-repair", "unstructured success report repair probe", "implementer"),

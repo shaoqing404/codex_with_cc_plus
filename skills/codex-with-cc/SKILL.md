@@ -37,10 +37,11 @@ Use this workflow as a Superpowers-style staged control loop, not as a prompt sh
 2. Plan gate: split work into bounded task files with `Goal`, `Allowed Scope`, `Forbidden Actions`, `Acceptance Criteria`, `Verification`, and `Report Requirements`.
 3. Task validation gate: run local deterministic `validate_delegate_task.*` when preparing task files or when scope/review metadata is easy to get wrong. This gate does not call DeepSeek or consume model tokens.
 4. Optional task-file assist: use report-only `delegate_to_openai_compatible_report.*` to explain or draft fixes for invalid TaskFiles only when useful; it must remain advisory and state `mayOverrideValidator=false`.
-5. Dispatch gate: use fresh child threads with `model: gpt-5.4-mini`, `reasoning_effort: medium`, and `fork_context: false`.
-6. Implementer gate: require test-first or verification-first evidence when changing behavior.
-7. Review gate: review every implementation in two passes, spec compliance first, then code quality and regression risk.
-8. Final-verifier gate: finish only after workflow-level verification confirms run artifacts, workflow artifacts, accepted review gates, final-verifier evidence, parallel scope safety, session continuity when relevant, and repository tests support acceptance.
+5. Runtime status gate: use `ccstatus preflight --json` when Claude Code worker reliability is unknown, after runtime changes, or before first implementation dispatch. If it returns `delegateStatus=REFUSED` or `dispatchAllowed=false`, report that refusal to the main thread/user and do not call `delegate_to_claude.*`.
+6. Dispatch gate: use fresh child threads with `model: gpt-5.4-mini`, `reasoning_effort: medium`, and `fork_context: false`.
+7. Implementer gate: require test-first or verification-first evidence when changing behavior.
+8. Review gate: review every implementation in two passes, spec compliance first, then code quality and regression risk.
+9. Final-verifier gate: finish only after workflow-level verification confirms run artifacts, workflow artifacts, accepted review gates, final-verifier evidence, parallel scope safety, session continuity when relevant, and repository tests support acceptance.
 
 Workers are context consumers, not decision owners. Codex main thread owns architecture, task boundaries, acceptance, rework decisions, and final delivery.
 
@@ -74,6 +75,7 @@ In the main Codex thread:
 - Prefer serial execution when write scopes overlap or acceptance criteria are still unstable.
 - Use parallel execution only for independent read-only tasks or writable tasks with explicit non-overlapping `-Scope` values.
 - Do not run `claude` directly.
+- Use `ccstatus summary|claude|preflight|run|workflow --json` as the main-thread decision surface when dispatch readiness, live run state, or failure layer is unclear.
 - Do not run bundled delegate scripts directly except when `CODEX_WITH_CC.md` explicitly allows the trusted local terminal fallback.
 - Verify each run with `verify_delegate_run.*` or `verify_delegate_artifacts.*`.
 - Verify the whole workflow with `verify_delegate_workflow.*`; use `verify_delegate_chain.*` when validating primary/parallel session continuity.

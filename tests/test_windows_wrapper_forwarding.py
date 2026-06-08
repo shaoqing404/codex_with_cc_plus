@@ -263,6 +263,7 @@ def test_windows_artifact_and_chain_wrappers_forward_to_python() -> None:
     assert_windows_wrapper_is_thin("run_real_delegate_chain_validation.ps1", "run_real_delegate_chain_validation.py")
     assert_windows_wrapper_is_thin("ccclean.ps1", "ccclean.py")
     assert_windows_wrapper_is_thin("ccruntime.ps1", "ccruntime.py")
+    assert_windows_wrapper_is_thin("ccstatus.ps1", "ccstatus.py")
     assert_windows_wrapper_is_thin("ccindex.ps1", "ccindex.py")
     assert_windows_wrapper_is_thin("ccdash.ps1", "ccdash.py")
     assert_windows_wrapper_is_thin("validate_delegate_task.ps1", "validate_delegate_task.py")
@@ -270,9 +271,14 @@ def test_windows_artifact_and_chain_wrappers_forward_to_python() -> None:
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_chain_wrapper_") as tmp:
         root = Path(tmp)
         artifact_root = root / "artifacts"
+        home = root / "home"
+        settings = home / ".claude" / "settings.json"
+        settings.parent.mkdir(parents=True, exist_ok=True)
+        settings.write_text(json.dumps({"model": "opus", "env": {}}), encoding="utf-8")
         fake_bin = make_fake_claude_bin(root)
         env = {
             "CODEX_CLAUDE_CHILD_THREAD": "1",
+            "HOME": str(home),
             "PATH": f"{fake_bin}{os.pathsep}{os.environ.get('PATH', '')}",
         }
 
