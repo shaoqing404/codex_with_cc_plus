@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 import json
 import socket
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from typing import Any
@@ -15,10 +16,12 @@ from .ds_routing import run_audit_ds_routing, workflow_audit_ds_routing
 from .handoff import refusal_handoff, terminal_handoff, wait_handoff
 from .index import build_index
 from .io_utils import load_json, read_text, write_json, write_text
+from .paths import repo_root, script_ext, script_family, workflow_root
 from .reports import report_section
 from .runtime_control import build_runtime_status
 from .supervision import build_run_supervisor_summary, build_workflow_watch_summary
-from .workflow import REQUIRED_IMPLEMENTER_REVIEWS, workflow_path
+from .task_contract import validate_task_file_contract
+from .workflow import REQUIRED_IMPLEMENTER_REVIEWS, safe_task_id, workflow_path
 
 
 UNAVAILABLE_MESSAGE = (
@@ -401,6 +404,8 @@ def write_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None
                 f"Model: {(audit.get('dsRouting') or {}).get('model') or '-'}",
                 f"AutomaticDispatch: {str((audit.get('dsRouting') or {}).get('automaticDispatch')).lower()}",
                 f"mayOverrideVerifier: {str((audit.get('dsRouting') or {}).get('mayOverrideVerifier')).lower()}",
+                f"AdvisoryPackage: {(audit.get('dsAdvisoryPackage') or {}).get('packagePath') or '-'}",
+                f"AdvisoryPrepared: {str((audit.get('dsAdvisoryPackage') or {}).get('prepared')).lower()}",
                 "",
                 "## Missing Gates",
                 "",
@@ -535,6 +540,8 @@ def write_workflow_audit_artifacts(audit: dict[str, Any], artifact_root_value: s
                 f"Model: {(audit.get('dsRouting') or {}).get('model') or '-'}",
                 f"AutomaticDispatch: {str((audit.get('dsRouting') or {}).get('automaticDispatch')).lower()}",
                 f"mayOverrideVerifier: {str((audit.get('dsRouting') or {}).get('mayOverrideVerifier')).lower()}",
+                f"AdvisoryPackage: {(audit.get('dsAdvisoryPackage') or {}).get('packagePath') or '-'}",
+                f"AdvisoryPrepared: {str((audit.get('dsAdvisoryPackage') or {}).get('prepared')).lower()}",
                 "",
                 "## Failed Runs",
                 "",
@@ -553,6 +560,193 @@ def write_workflow_audit_artifacts(audit: dict[str, Any], artifact_root_value: s
         + "\n",
     )
     return json_path, md_path
+
+
+def _audit_target(audit: dict[str, Any]) -> tuple[str, str]:
+    audit_type = str(audit.get("auditType") or "")
+    if audit_type.endswith("workflow-audit"):
+        return "workflow", str(audit.get("workflowId") or "workflow")
+    return "run", str(audit.get("runId") or "run")
+
+
+def _default_ds_task_root() -> Path:
+    return repo_root() / ".codex" / "codex_with_cc" / "tasks"
+
+
+def _quote(value: str | Path) -> str:
+    return '"' + str(value).replace('"', '\\"') + '"'
+
+
+def _ds_task_text(audit: dict[str, Any], route: dict[str, Any], target_kind: str, target_id: str) -> str:
+    evidence = audit.get("evidencePaths") if isinstance(audit.get("evidencePaths"), dict) else {}
+    missing_gates = audit.get("missingGates") if isinstance(audit.get("missingGates"), list) else []
+    failed_runs = audit.get("failedRuns") if isinstance(audit.get("failedRuns"), list) else []
+    evidence_lines = "\n".join(f"- {key}: {value}" for key, value in evidence.items()) or "- none"
+    missing_lines = "\n".join(f"- {item}" for item in missing_gates) or "- none"
+    failed_lines = "\n".join(f"- {item}" for item in failed_runs) or "- none"
+    return f"""# DS Advisory Task
+
+Goal
+Produce a report-only DS advisory for {target_kind} {target_id}. Explain the trigger `{route.get('trigger') or ''}`, summarize evidence, classify retry safety and next action, and preserve deterministic verifier authority.
+
+Allowed Scope
+{evidence_lines}
+
+Forbidden Actions
+- Do not edit business files.
+- Do not run shell commands or tests.
+- Do not dispatch Claude Code or implementation workers.
+- Do not claim acceptance or override deterministic validators, verifiers, review gates, or final acceptance.
+
+Acceptance Criteria
+- The report summarizes evidence paths and uncertainty.
+- The report states advisoryOnly=true and mayOverrideVerifier=false.
+- The report distinguishes execution-layer failure, business failure, missing gates, and accepted evidence when relevant.
+- The report gives next actions for the Codex main thread without accepting the workflow.
+
+Verification
+- Report-only task; no shell verification commands are executed.
+- Source audit mainThreadAction: {audit.get('mainThreadAction') or ''}
+- Source audit acceptanceAllowed: {str(bool(audit.get('acceptanceAllowed'))).lower()}
+- Source audit missing gates:
+{missing_lines}
+- Source audit failed runs:
+{failed_lines}
+
+Report Requirements
+- Status / Role / Summary / Changed Files / Verification / Findings / Final Result / Risks Or Follow-ups
+- Findings must include advisoryOnly=true.
+- Findings must include mayOverrideValidator=false.
+- Findings must include mayOverrideVerifier=false.
+- Findings must include canEditBusinessFiles=false.
+- Findings must include canRunShellTests=false.
+- Findings must include canDispatchWorkerRuns=false.
+- Findings must include canAcceptWorkflowResults=false.
+"""
+
+
+def prepare_ds_advisory_package(
+    audit: dict[str, Any],
+    artifact_root_value: str | None = None,
+    task_root_value: str | None = None,
+) -> dict[str, Any]:
+    target_kind, target_id = _audit_target(audit)
+    root = resolve_artifact_root(
+        artifact_root_value,
+        run_id=str(audit.get("runId") or "") or None,
+        workflow_id=str(audit.get("workflowId") or "") or None,
+    )
+    safe_target = safe_task_id(f"{target_kind}-{target_id}")
+    route = audit.get("dsRouting") if isinstance(audit.get("dsRouting"), dict) else {}
+    recommendation = str(route.get("recommendation") or "not_recommended")
+    role = str(route.get("role") or "")
+    model = str(route.get("model") or "")
+    should_prepare = recommendation in {"recommended", "optional"} and bool(role) and bool(model)
+    task_file = ""
+    command = ""
+    ds_task_id = safe_task_id(f"{safe_target}-ds-{route.get('trigger') or 'advisory'}")
+    workflow_id = str(audit.get("workflowId") or f"{safe_target}-ds")
+    session_key = safe_task_id(f"{workflow_id}-ds-advisory")
+
+    if should_prepare:
+        task_root = Path(task_root_value).resolve() if task_root_value else _default_ds_task_root().resolve()
+        now = datetime.now()
+        task_path = task_root / now.strftime("%Y%m%d") / f"{now.strftime('%H%M%S%f')[:-3]}-{ds_task_id}.md"
+        task_text = _ds_task_text(audit, route, target_kind, target_id)
+        validate_task_file_contract(task_text)
+        write_text(task_path, task_text)
+        task_file = str(task_path)
+        script = workflow_root() / script_family() / f"delegate_to_openai_compatible_report{script_ext()}"
+        command = " ".join(
+            [
+                "env",
+                "CODEX_CLAUDE_CHILD_THREAD=1",
+                _quote(script),
+                "-TaskFile",
+                _quote(task_path),
+                "-WorkflowId",
+                _quote(workflow_id),
+                "-TaskId",
+                _quote(ds_task_id),
+                "-Role",
+                "researcher",
+                "-SessionKey",
+                _quote(session_key),
+                "-ArtifactRoot",
+                _quote(root),
+                "-Model",
+                _quote(model),
+            ]
+        )
+
+    package = {
+        "artifactSchema": ARTIFACT_SCHEMA_VERSION,
+        "invocationContract": INVOCATION_CONTRACT,
+        "packageType": "ds-advisory-task-package",
+        "targetKind": target_kind,
+        "targetId": target_id,
+        "prepared": should_prepare,
+        "modelInvocation": "not_started",
+        "requiresChildThread": should_prepare,
+        "automaticDispatch": False,
+        "route": route,
+        "taskFile": task_file,
+        "taskId": ds_task_id if should_prepare else "",
+        "workflowId": workflow_id if should_prepare else "",
+        "sessionKey": session_key if should_prepare else "",
+        "childThreadCommand": command,
+        "childThreadAction": "run_report_only_ds_child_thread" if should_prepare else "follow_deterministic_next_command",
+        "reason": route.get("reason") or "No DS route is recommended.",
+        "evidencePaths": audit.get("evidencePaths") if isinstance(audit.get("evidencePaths"), dict) else {},
+        "advisoryOnly": True,
+        "mayOverrideValidator": False,
+        "mayOverrideVerifier": False,
+        "canEditBusinessFiles": False,
+        "canRunShellTests": False,
+        "canDispatchWorkerRuns": False,
+        "canAcceptWorkflowResults": False,
+        "provenance": {
+            "sources": ["ccstatus audit", "dsRouting"],
+            "generatedReasoning": ["taskFile", "childThreadCommand", "childThreadAction"],
+        },
+        "updatedAt": now_iso(),
+    }
+    json_path = root / f"ds_advisory_{safe_target}.json"
+    md_path = root / f"ds_advisory_{safe_target}.md"
+    package["packagePath"] = str(json_path)
+    package["packageMarkdownPath"] = str(md_path)
+    write_json(json_path, package)
+    write_text(
+        md_path,
+        "\n".join(
+            [
+                "# Codex With CC DS Advisory Package",
+                "",
+                f"TargetKind: {target_kind}",
+                f"TargetId: {target_id}",
+                f"Prepared: {str(should_prepare).lower()}",
+                f"Recommendation: {recommendation}",
+                f"Trigger: {route.get('trigger') or '-'}",
+                f"Role: {role or '-'}",
+                f"Model: {model or '-'}",
+                "AutomaticDispatch: false",
+                "ModelInvocation: not_started",
+                "mayOverrideVerifier: false",
+                "",
+                "## Task File",
+                "",
+                task_file or "- none",
+                "",
+                "## Child Thread Command",
+                "",
+                command or "- none",
+                "",
+            ]
+        )
+        + "\n",
+    )
+    audit["dsAdvisoryPackage"] = package
+    return package
 
 
 def build_workflow_status(ns: argparse.Namespace) -> dict[str, Any]:
@@ -641,9 +835,13 @@ def run_ccstatus(ns: argparse.Namespace) -> int:
     elif command == "audit":
         if getattr(ns, "workflow_id", None):
             report = build_workflow_audit_package(ns)
+            if getattr(ns, "prepare_ds_task", False):
+                prepare_ds_advisory_package(report, ns.artifact_root, ns.ds_task_root)
             write_workflow_audit_artifacts(report, ns.artifact_root)
         else:
             report = build_audit_package(ns)
+            if getattr(ns, "prepare_ds_task", False):
+                prepare_ds_advisory_package(report, ns.artifact_root, ns.ds_task_root)
             write_audit_artifacts(report, ns.artifact_root)
     elif command == "workflow":
         report = build_workflow_status(ns)

@@ -587,6 +587,18 @@ def test_contract_declares_ds_routing_schema_boundary() -> None:
     assert "cannot override" in ds_schema["acceptanceRule"]
 
 
+def test_contract_declares_ds_advisory_task_package_schema() -> None:
+    contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
+    package_schema = contract["dsAdvisoryTaskPackageSchema"]
+
+    assert package_schema["artifactPattern"] == "ds_advisory_<TargetKind-TargetId>.json"
+    assert "ccstatus audit" in package_schema["command"]
+    assert "PrepareDsTask" in package_schema["command"]
+    assert "childThreadCommand" in package_schema["requiredFields"]
+    assert "automaticDispatch=false" in package_schema["dispatchRule"]
+    assert "cannot override" in package_schema["acceptanceRule"]
+
+
 def test_contract_declares_run_handoff_artifact_schema() -> None:
     contract = json.loads(CONTRACT.read_text(encoding="utf-8"))
     handoff_schema = contract["runHandoffArtifactSchema"]
@@ -774,6 +786,26 @@ def test_ccstatus_audit_writes_workflow_rollup_package() -> None:
         stored_audit = json.loads(Path(payload["auditPath"]).read_text(encoding="utf-8"))
         assert stored_audit["workflowId"] == "wf-rollup"
         assert stored_audit["dsRouting"]["recommendation"] == "not_recommended"
+        prepared = run_script(
+            CCSTATUS,
+            "audit",
+            "-WorkflowId",
+            "wf-rollup",
+            "-ArtifactRoot",
+            str(artifact_root),
+            "-PrepareDsTask",
+            "-DsTaskRoot",
+            str(root / "tasks"),
+            "--json",
+        )
+        assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+        prepared_payload = json.loads(prepared.stdout)
+        package = prepared_payload["dsAdvisoryPackage"]
+        assert package["prepared"] is False
+        assert package["automaticDispatch"] is False
+        assert package["childThreadCommand"] == ""
+        assert package["childThreadAction"] == "follow_deterministic_next_command"
+        assert Path(package["packagePath"]).exists()
 
 
 def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
@@ -878,6 +910,40 @@ def test_pageindex_socket_failure_fixture_is_execution_layer_failure_not_accepta
         assert audit_payload["dsRouting"]["automaticDispatch"] is False
         assert audit_payload["dsRouting"]["canAcceptWorkflowResults"] is False
         assert Path(audit_payload["auditPath"]).exists()
+
+        prepared = run_script(
+            CCSTATUS,
+            "audit",
+            "-RunId",
+            run_id,
+            "-ArtifactRoot",
+            str(artifact_root),
+            "-PrepareDsTask",
+            "-DsTaskRoot",
+            str(Path(tmp) / "tasks"),
+            "--json",
+        )
+        assert prepared.returncode == 0, prepared.stdout + prepared.stderr
+        prepared_payload = json.loads(prepared.stdout)
+        package = prepared_payload["dsAdvisoryPackage"]
+        assert package["packageType"] == "ds-advisory-task-package"
+        assert package["prepared"] is True
+        assert package["modelInvocation"] == "not_started"
+        assert package["automaticDispatch"] is False
+        assert package["requiresChildThread"] is True
+        assert package["mayOverrideVerifier"] is False
+        assert package["canAcceptWorkflowResults"] is False
+        assert package["route"]["trigger"] == "execution_layer_failure"
+        assert package["route"]["model"] == "deepseek-v4-pro"
+        assert "CODEX_CLAUDE_CHILD_THREAD=1" in package["childThreadCommand"]
+        assert "delegate_to_openai_compatible_report" in package["childThreadCommand"]
+        assert "-Model" in package["childThreadCommand"]
+        assert Path(package["taskFile"]).exists()
+        task_text = Path(package["taskFile"]).read_text(encoding="utf-8")
+        assert "Report-only task; no shell verification commands are executed." in task_text
+        assert "mayOverrideVerifier=false" in task_text
+        stored_package = json.loads(Path(package["packagePath"]).read_text(encoding="utf-8"))
+        assert stored_package["taskFile"] == package["taskFile"]
 
         built = run_script(CCINDEX, "build", "-ArtifactRoot", str(artifact_root), "--json")
         assert built.returncode == 0, built.stdout + built.stderr

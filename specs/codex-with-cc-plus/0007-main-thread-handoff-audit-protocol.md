@@ -46,11 +46,15 @@ Implemented in this phase:
   and parallel scope gaps;
 - read-only cc-switch provider adapter for CLI discovery and redacted desktop
   state inspection;
-- local zero-token `dsRouting` plans in run/workflow audit packages.
+- local zero-token `dsRouting` plans in run/workflow audit packages;
+- explicit `ccstatus audit ... -PrepareDsTask` DS advisory packages that can write
+  a report-only TaskFile and child-thread command without invoking DS.
 
 Not yet implemented:
 
-- automatic DS model invocation for P1/P2 orchestration assistance.
+- automatic DS model invocation for P1/P2 orchestration assistance. The framework
+  can now prepare opt-in DS TaskFiles, but it still does not automatically call
+  a DS model.
 
 ## Role Personas
 
@@ -392,6 +396,10 @@ Implemented subcommands:
 - `ccstatus audit -WorkflowId <id> --json`: write `audit_<WorkflowId>.json/.md`
   with run audit rollups, failed/running runs, missing gates, workflow final
   acceptance, evidence paths, and main-thread action.
+- `ccstatus audit ... -PrepareDsTask --json`: write
+  `ds_advisory_<TargetKind-TargetId>.json/.md`, and when DS is recommended or
+  optional, prepare a report-only TaskFile plus a child-thread command. This does
+  not call DS and keeps `automaticDispatch=false`.
 - `ccstatus workflow -WorkflowId <id> --json`: workflow-level gate state and
   missing review/audit requirements.
 - `ccstatus preflight --json`: first-use gate that refuses framework dispatch when
@@ -628,8 +636,9 @@ Future refinement:
 ### P1: DS Boundary And Routing
 
 Status: boundary implemented in `delegate_to_openai_compatible_report`; local
-zero-token routing plans are implemented in `ccstatus audit`; automatic DS model
-invocation remains a future refinement.
+zero-token routing plans are implemented in `ccstatus audit`; explicit
+`-PrepareDsTask` advisory packages can prepare report-only TaskFiles and
+child-thread commands. Automatic DS model invocation remains a future refinement.
 
 Standardize DS as an advisory friction reducer.
 
@@ -663,6 +672,17 @@ Implemented routing plan:
 - all routing plans keep `automaticDispatch=false`, `advisoryOnly=true`,
   `mayOverrideValidator=false`, `mayOverrideVerifier=false`,
   `canDispatchWorkerRuns=false`, and `canAcceptWorkflowResults=false`.
+
+Implemented advisory package:
+
+- `ccstatus audit ... -PrepareDsTask --json` writes
+  `ds_advisory_<TargetKind-TargetId>.json/.md`;
+- recommended or optional DS routes receive a report-only TaskFile under
+  `.codex/codex_with_cc/tasks/<yyyyMMdd>/`;
+- the package includes `childThreadCommand`, `modelInvocation=not_started`,
+  `requiresChildThread=true`, and `automaticDispatch=false`;
+- not-recommended routes write `prepared=false` and no TaskFile so the main
+  thread follows the deterministic next command instead.
 
 ### P2: PageIndex Failure Fixture
 

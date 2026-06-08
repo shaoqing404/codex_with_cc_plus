@@ -293,6 +293,8 @@ Delegation artifacts are written under `.codex/codex_with_cc/claude-delegate` by
   run audit package
 - `audit_<WorkflowId>.json/.md` when `ccstatus audit -WorkflowId` is run for a
   workflow rollup audit package
+- `ds_advisory_<TargetKind-TargetId>.json/.md` when `ccstatus audit ... -PrepareDsTask`
+  explicitly prepares a report-only DS advisory package
 - `verifier_audit_<WorkflowId>.json/.md` when `verify_delegate_workflow.*` runs
   and records the verifier-owned workflow gate audit
 - `handoff_<RunId>.json/.md` when `ccstatus run -RunId <run-id> --json` is run
@@ -329,6 +331,11 @@ spending another worker run.
 `ccstatus audit -RunId <run-id> --json` writes `audit_<RunId>.json/.md` and answers
 whether the main thread can enter review, accept the result, must dispatch missing
 gates, should rerun, or should diagnose an execution-layer failure.
+`ccstatus audit ... -PrepareDsTask --json` additionally writes
+`ds_advisory_<TargetKind-TargetId>.json/.md`. When DS is recommended or optional,
+the package includes a report-only TaskFile and a child-thread command for
+`delegate_to_openai_compatible_report.*`. It does not call DS, keeps
+`automaticDispatch=false`, and records `modelInvocation=not_started`.
 `ccstatus run -RunId <run-id> --json` writes `handoff_<RunId>.json/.md` with the
 current observed state and a `childThreadResponseTemplate`. A child thread should
 copy that template back to the main thread for `WAITING`, `FAILED`,

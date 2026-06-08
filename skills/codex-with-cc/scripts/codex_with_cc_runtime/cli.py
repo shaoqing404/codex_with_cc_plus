@@ -207,6 +207,8 @@ def build_parser() -> argparse.ArgumentParser:
     audit_target.add_argument("-WorkflowId", dest="workflow_id")
     ccstatus_audit.add_argument("-ArtifactRoot", dest="artifact_root")
     ccstatus_audit.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+    ccstatus_audit.add_argument("-PrepareDsTask", dest="prepare_ds_task", action="store_true")
+    ccstatus_audit.add_argument("-DsTaskRoot", dest="ds_task_root")
     ccstatus_audit.add_argument("--json", dest="json", action="store_true")
     ccstatus_audit.add_argument("--no-verify", dest="no_verify", action="store_true")
     ccstatus_audit.set_defaults(func=run_ccstatus)

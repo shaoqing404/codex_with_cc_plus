@@ -52,6 +52,8 @@ Failure branches:
   state and apply confirmed whitelisted settings changes with audit artifacts.
 - `ccstatus summary|claude|preflight|run|audit|workflow`: main-thread decision surface
   for dispatch readiness, live run state, failure layer, and acceptance guidance.
+  Use `ccstatus audit ... -PrepareDsTask` to explicitly prepare a report-only DS
+  advisory TaskFile and child-thread command without invoking DS automatically.
 - `ccindex build|list|show|export`: build machine-level artifact indexes with
   confidence, provenance, model, permission, and run-state metadata.
 - `ccdash build|open`: generate a local static read-only dashboard from `ccindex`
@@ -71,7 +73,8 @@ Failure branches:
   artifacts, DS advisory boundary artifacts, hook fallback guidance plus nested
   parallel shell gate coverage, and the PageIndex API/socket failure fixture,
   read-only cc-switch provider discovery, and zero-token DS routing plans in
-  audit packages; tracks P1/P2 automatic DS model invocation follow-ups.
+  audit packages plus explicit DS advisory TaskFile packages; tracks P1/P2
+  automatic DS model invocation follow-ups.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.
