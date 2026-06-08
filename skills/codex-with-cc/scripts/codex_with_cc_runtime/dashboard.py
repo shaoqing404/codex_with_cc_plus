@@ -54,11 +54,13 @@ def _render_html(index: dict[str, Any]) -> str:
                 f"<td>{html.escape(str(run.get('streamedModel') or ''))}</td>"
                 f"<td>{html.escape(str(run.get('permissionMode') or ''))}</td>"
                 f"<td>{'yes' if run.get('bypassPermissions') else 'no'}</td>"
+                f"<td>{html.escape(str(run.get('failureLayer') or ''))}</td>"
+                f"<td>{html.escape(str(run.get('businessAcceptance') or ''))}</td>"
                 "</tr>"
             )
         run_table = (
             '<table class="runs"><thead><tr><th>Run</th><th>Role</th><th>State</th><th>Result</th>'
-            "<th>Requested</th><th>Streamed</th><th>Permission</th><th>Bypass</th></tr></thead><tbody>"
+            "<th>Requested</th><th>Streamed</th><th>Permission</th><th>Bypass</th><th>Failure Layer</th><th>Acceptance</th></tr></thead><tbody>"
             + "".join(run_rows)
             + "</tbody></table>"
         )

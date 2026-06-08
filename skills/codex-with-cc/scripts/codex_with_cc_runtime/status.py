@@ -249,6 +249,11 @@ def build_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
     worker_claim = str(report.get("status") or "")
     failure_layer = str(status.get("failureLayer") or config.get("failureLayer") or "")
     execution_layer_failure = bool(failure_layer) or str(status.get("failureDisposition") or "") == "NEED_HUMAN_INTERVENTION"
+    worker_outcome = str(status.get("workerOutcome") or config.get("workerOutcome") or "")
+    business_acceptance = str(status.get("businessAcceptance") or config.get("businessAcceptance") or "")
+    business_files_changed = bool(status.get("businessFilesChanged") or config.get("businessFilesChanged"))
+    safe_to_retry_same_task_file = bool(status.get("safeToRetrySameTaskFile") or config.get("safeToRetrySameTaskFile"))
+    may_override_implementation = bool(status.get("mayOverrideImplementation") or config.get("mayOverrideImplementation"))
     verifier_passed = verifier.get("status") == "passed"
     report_valid = bool(report.get("exists")) and bool(worker_claim)
     can_enter_review = report_valid and verifier_passed and worker_claim == "DONE" and not execution_layer_failure
@@ -266,6 +271,11 @@ def build_audit_package(ns: argparse.Namespace) -> dict[str, Any]:
         "observedState": summary.get("state"),
         "runStatus": summary.get("runStatus"),
         "workerClaim": worker_claim,
+        "workerOutcome": worker_outcome,
+        "businessAcceptance": business_acceptance,
+        "businessFilesChanged": business_files_changed,
+        "safeToRetrySameTaskFile": safe_to_retry_same_task_file,
+        "mayOverrideImplementation": may_override_implementation,
         "reportValid": report_valid,
         "changedFilesInScope": _changed_files_in_scope(report_text, scope),
         "testsDeclared": bool(declared_tests),
@@ -319,6 +329,10 @@ def write_audit_artifacts(audit: dict[str, Any], artifact_root_value: str | None
                 f"WorkflowId: {audit.get('workflowId')}",
                 f"ObservedState: {audit.get('observedState')}",
                 f"WorkerClaim: {audit.get('workerClaim')}",
+                f"WorkerOutcome: {audit.get('workerOutcome') or '-'}",
+                f"BusinessAcceptance: {audit.get('businessAcceptance') or '-'}",
+                f"BusinessFilesChanged: {str(audit.get('businessFilesChanged')).lower()}",
+                f"SafeToRetrySameTaskFile: {str(audit.get('safeToRetrySameTaskFile')).lower()}",
                 f"CanEnterReview: {str(audit.get('canEnterReview')).lower()}",
                 f"AcceptanceAllowed: {str(audit.get('acceptanceAllowed')).lower()}",
                 f"FailureLayer: {audit.get('failureLayer') or '-'}",

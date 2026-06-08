@@ -1,14 +1,16 @@
 #!/usr/bin/env python3
 from pathlib import Path
 import json
+import os
 import subprocess
+import tempfile
 
 
 REPO = Path(__file__).resolve().parents[1]
 HOOK_SCRIPT = REPO / "hooks" / "subagent-gate-hook.mjs"
 
 
-def run_hook(payload: dict) -> dict:
+def run_hook(payload: dict, env: dict[str, str] | None = None) -> dict:
     result = subprocess.run(
         ["node", str(HOOK_SCRIPT)],
         input=json.dumps(payload),
@@ -17,6 +19,7 @@ def run_hook(payload: dict) -> dict:
         stderr=subprocess.PIPE,
         cwd=REPO,
         encoding="utf-8",
+        env={**os.environ, **(env or {})},
         check=False,
     )
     assert result.returncode == 0, result.stderr
@@ -57,6 +60,21 @@ def test_session_start_injects_codex_with_cc_contract() -> None:
     assert "delegate_to_claude" in context
     assert "Claude Code CLI" in context
     assert "Workflow Method" in context
+
+
+def test_session_start_fallback_context_teaches_wait_refusal_and_audit_protocol() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_hook_fallback_") as tmp:
+        output = run_hook(
+            {"hook_event_name": "SessionStart", "source": "startup"},
+            env={"CODEX_PLUGIN_ROOT": str(Path(tmp) / "missing-plugin-root")},
+        )
+    context = hook_specific(output)["additionalContext"]
+
+    assert "ccstatus preflight --json" in context
+    assert "DelegateStatus: WAITING" in context
+    assert "acceptanceAllowed=false" in context
+    assert "RUNNING_DEAD_PROCESS" in context
+    assert "mayOverrideVerifier=false" in context
 
 
 def test_user_prompt_submit_reinforces_contract_for_subagent_requests() -> None:

@@ -21,6 +21,7 @@ DELEGATE = SCRIPTS / "delegate_to_claude.py"
 CONTRACT = REPO / "skills" / "codex-with-cc" / "contract.json"
 sys.path.insert(0, str(SCRIPTS))
 
+from codex_with_cc_runtime.artifacts import verify_artifacts
 from codex_with_cc_runtime.claude_cli import new_claude_cli_args
 
 
@@ -187,6 +188,174 @@ def write_running_fixture(root: Path) -> str:
     prompt_path.write_text("# prompt\n", encoding="utf-8")
     stream_path.write_text('{"type":"assistant","message":{"model":"MiniMax-M3","content":[]}}\n', encoding="utf-8")
     trace_path.write_text("[fixture]\n", encoding="utf-8")
+    (root / f"workflow_{workflow_id}.json").write_text(json.dumps(workflow), encoding="utf-8")
+    return run_id
+
+
+def pageindex_api_failure_report() -> str:
+    return "\n".join(
+        [
+            "Status",
+            "FAIL",
+            "",
+            "Role",
+            "implementer",
+            "",
+            "Summary",
+            "Claude Code reached its API layer but could not complete the delegated PageIndex task.",
+            "",
+            "Changed Files",
+            "None",
+            "",
+            "Verification",
+            "- not run; Claude Code API connection failed before trustworthy worker execution",
+            "",
+            "Findings",
+            "- Delegate runner startup, TaskFile metadata, and artifact writing reached Claude Code execution.",
+            "- Claude Code returned an API error instead of a structured worker implementation report.",
+            "- API error: API Error: Unable to connect to API (ConnectionRefused)",
+            "",
+            "Final Result",
+            "FAIL",
+            "",
+            "Risks Or Follow-ups",
+            "- Check Claude Code login, local OpenClaw/MiniMax backend, proxy, account quota, and selected backend/model before retrying.",
+            "- Do not accept this delegated task as implemented; no trustworthy worker verification was produced.",
+        ]
+    )
+
+
+def write_pageindex_socket_failure_fixture(root: Path) -> str:
+    root.mkdir(parents=True, exist_ok=True)
+    workflow_id = "pageindex-phase-5-3b-step2e-ui"
+    task_id = "phase-5-3b-step2e1b-upload-delete-ux-hardening"
+    run_id = "20260607_222729_937_b97208fd"
+    output_path = root / f"claude_{run_id}.md"
+    prompt_path = root / f"prompt_{run_id}.md"
+    stream_path = root / f"stream_{run_id}.jsonl"
+    trace_path = root / f"trace_{run_id}.log"
+    status_path = root / f"status_{run_id}.json"
+    config_path = root / f"config_{run_id}.json"
+    output_path.write_text(pageindex_api_failure_report(), encoding="utf-8")
+    prompt_path.write_text("# PageIndex Step 2E-1B TaskFile\n\nGoal\nRun bounded PageIndex upload/delete UX hardening.\n", encoding="utf-8")
+    stream_path.write_text(
+        json.dumps(
+            {
+                "type": "result",
+                "subtype": "success",
+                "is_error": True,
+                "api_error_status": None,
+                "result": "API Error: Unable to connect to API (ConnectionRefused)",
+            },
+            separators=(",", ":"),
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    trace_path.write_text("[result] API Error: Unable to connect to API (ConnectionRefused)\n", encoding="utf-8")
+    failure = {
+        "failureDisposition": "NEED_HUMAN_INTERVENTION",
+        "failureSummary": "CLAUDE_API_ERROR: API Error: Unable to connect to API (ConnectionRefused)",
+        "apiErrorStatus": None,
+        "artifactContract": "structured_failure_report",
+        "workerOutcome": "FAIL",
+        "businessAcceptance": "blocked",
+        "failureLayer": "claude_api_connection",
+        "retryable": "maybe",
+        "humanActionRequired": True,
+        "safeToRetrySameTaskFile": True,
+        "businessFilesChanged": False,
+        "mayOverrideImplementation": False,
+    }
+    common = {
+        "artifactSchema": 3,
+        "invocationContract": "codex_with_cc_workflow",
+        "childThreadMarkerName": "CODEX_CLAUDE_CHILD_THREAD",
+        "childThreadMarkerValidated": True,
+        "runId": run_id,
+        "workflowId": workflow_id,
+        "taskId": task_id,
+        "role": "implementer",
+        "runnerType": "claude_code",
+        "outputPath": str(output_path),
+        "promptPath": str(prompt_path),
+        "rawStreamPath": str(stream_path),
+        "tracePath": str(trace_path),
+        "sessionMode": "PrimaryReuse",
+        "sessionKey": "phase-5-3b-step2e1b-upload-delete-20260607-a",
+        "initialSessionId": "fresh-session-a",
+        "initialResume": False,
+        "sessionId": "fresh-session-a",
+        "resume": False,
+        "attemptCount": 1,
+        "retryCount": 0,
+        "maxRetryCount": 0,
+        "scope": ["frontend"],
+        "tests": ["cd frontend && npm run build", "git diff --check"],
+        **failure,
+    }
+    config = {**common, "configPath": str(config_path), "statusPath": str(status_path)}
+    status = {
+        **common,
+        "configPath": str(config_path),
+        "statusPath": str(status_path),
+        "status": "failed",
+        "exitCode": 1,
+        "outputBytes": output_path.stat().st_size,
+        "attempts": [
+            {
+                "attempt": 1,
+                "sessionId": "fresh-session-a",
+                "resume": False,
+                "retryReason": None,
+                "exitCode": 1,
+                "sawAssistantText": False,
+                "sawResultSuccess": False,
+                "capturedFinalResult": True,
+            }
+        ],
+    }
+    workflow = {
+        "artifactSchema": 3,
+        "invocationContract": "codex_with_cc_workflow",
+        "workflowId": workflow_id,
+        "tasks": {
+            task_id: {
+                "taskId": task_id,
+                "role": "implementer",
+                "scope": ["frontend"],
+                "verification": ["cd frontend && npm run build", "git diff --check"],
+                "runs": [run_id],
+                "status": "failed",
+                "lastReportStatus": "FAIL",
+                "lastReportFinalResult": "FAIL",
+                "lastReportRole": "implementer",
+                "reviewDecision": "failed",
+                "reviews": {},
+            }
+        },
+        "runs": {
+            run_id: {
+                "runId": run_id,
+                "taskId": task_id,
+                "role": "implementer",
+                "runnerType": "claude_code",
+                "status": "failed",
+                "reportStatus": "FAIL",
+                "reportFinalResult": "FAIL",
+                "reportRole": "implementer",
+                "reviewDecision": "failed",
+                "configPath": str(config_path),
+                "statusPath": str(status_path),
+                "outputPath": str(output_path),
+                "promptPath": str(prompt_path),
+                "rawStreamPath": str(stream_path),
+                "tracePath": str(trace_path),
+            }
+        },
+    }
+    config_path.write_text(json.dumps(config), encoding="utf-8")
+    status_path.write_text(json.dumps(status), encoding="utf-8")
     (root / f"workflow_{workflow_id}.json").write_text(json.dumps(workflow), encoding="utf-8")
     return run_id
 
@@ -520,3 +689,55 @@ def test_delegate_refuses_before_claude_when_preflight_fails() -> None:
         assert audit_json["failureLayer"] == "claude_api_socket"
         assert audit_json["mainThreadAction"] == "run_runtime_diagnostics"
         assert audit_json["acceptanceAllowed"] is False
+
+
+def test_pageindex_socket_failure_fixture_is_execution_layer_failure_not_acceptance() -> None:
+    with tempfile.TemporaryDirectory(prefix="codex_with_cc_pageindex_failure_") as tmp:
+        artifact_root = Path(tmp) / "artifacts"
+        run_id = write_pageindex_socket_failure_fixture(artifact_root)
+        verify_artifacts(run_id, str(artifact_root))
+
+        run_status = run_script(CCSTATUS, "run", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
+        assert run_status.returncode == 0, run_status.stdout + run_status.stderr
+        run_payload = json.loads(run_status.stdout)
+        handoff = run_payload["handoff"]
+        assert run_payload["summary"]["state"] == "FAILED"
+        assert run_payload["summary"]["deterministicVerifierResult"]["status"] == "passed"
+        assert handoff["delegateStatus"] == "FAILED"
+        assert handoff["acceptanceAllowed"] is False
+        assert handoff["mainThreadAction"] == "run_runtime_diagnostics"
+        assert handoff["failureLayer"] == "claude_api_connection"
+        assert handoff["businessAcceptance"] == "blocked"
+        assert handoff["businessFilesChanged"] is False
+        assert handoff["safeToRetrySameTaskFile"] is True
+        assert handoff["mayOverrideImplementation"] is False
+
+        audit = run_script(CCSTATUS, "audit", "-RunId", run_id, "-ArtifactRoot", str(artifact_root), "--json")
+        assert audit.returncode == 0, audit.stdout + audit.stderr
+        audit_payload = json.loads(audit.stdout)
+        assert audit_payload["executionLayerFailure"] is True
+        assert audit_payload["businessFailure"] is False
+        assert audit_payload["canEnterReview"] is False
+        assert audit_payload["acceptanceAllowed"] is False
+        assert audit_payload["workerOutcome"] == "FAIL"
+        assert audit_payload["businessAcceptance"] == "blocked"
+        assert audit_payload["businessFilesChanged"] is False
+        assert audit_payload["safeToRetrySameTaskFile"] is True
+        assert audit_payload["mainThreadAction"] == "run_runtime_diagnostics"
+        assert Path(audit_payload["auditPath"]).exists()
+
+        built = run_script(CCINDEX, "build", "-ArtifactRoot", str(artifact_root), "--json")
+        assert built.returncode == 0, built.stdout + built.stderr
+        index = json.loads(built.stdout)
+        indexed_run = index["records"][0]["runSummaries"][0]
+        assert indexed_run["failureLayer"] == "claude_api_connection"
+        assert indexed_run["executionLayerFailure"] is True
+        assert indexed_run["businessAcceptance"] == "blocked"
+        assert indexed_run["businessFilesChanged"] is False
+
+        dash_root = Path(tmp) / "dashboard"
+        dash = run_script(CCDASH, "build", "-ArtifactRoot", str(artifact_root), "-OutputRoot", str(dash_root), "--json")
+        assert dash.returncode == 0, dash.stdout + dash.stderr
+        html = Path(json.loads(dash.stdout)["htmlPath"]).read_text(encoding="utf-8")
+        assert "claude_api_connection" in html
+        assert "blocked" in html

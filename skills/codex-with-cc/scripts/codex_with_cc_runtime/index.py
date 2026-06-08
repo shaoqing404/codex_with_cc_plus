@@ -134,6 +134,9 @@ def _enrich_run(root: Path, run: dict[str, Any]) -> dict[str, Any]:
     stream_path = _path_from_run(root, run_id, run, "rawStreamPath", "stream", "jsonl")
     config = _read_json(config_path)
     status = _read_json(status_path)
+    failure_layer = str(status.get("failureLayer") or config.get("failureLayer") or "")
+    failure_disposition = str(status.get("failureDisposition") or config.get("failureDisposition") or "")
+    execution_layer_failure = bool(failure_layer) or failure_disposition == "NEED_HUMAN_INTERVENTION"
     enriched = dict(run)
     enriched.update(
         {
@@ -146,9 +149,15 @@ def _enrich_run(root: Path, run: dict[str, Any]) -> dict[str, Any]:
             "bypassPermissions": bool(config.get("bypassPermissions")),
             "sessionMode": str(config.get("sessionMode") or ""),
             "sessionKey": str(config.get("sessionKey") or ""),
-            "failureLayer": str(status.get("failureLayer") or config.get("failureLayer") or ""),
+            "failureLayer": failure_layer,
+            "failureDisposition": failure_disposition,
+            "failureSummary": str(status.get("failureSummary") or config.get("failureSummary") or ""),
+            "executionLayerFailure": execution_layer_failure,
             "workerOutcome": str(status.get("workerOutcome") or config.get("workerOutcome") or ""),
             "businessAcceptance": str(status.get("businessAcceptance") or config.get("businessAcceptance") or ""),
+            "businessFilesChanged": bool(status.get("businessFilesChanged") or config.get("businessFilesChanged")),
+            "safeToRetrySameTaskFile": bool(status.get("safeToRetrySameTaskFile") or config.get("safeToRetrySameTaskFile")),
+            "mayOverrideImplementation": bool(status.get("mayOverrideImplementation") or config.get("mayOverrideImplementation")),
             "tests": config.get("tests") if isinstance(config.get("tests"), list) else [],
             "provenance": {
                 "config": str(config_path) if config_path.exists() else "",

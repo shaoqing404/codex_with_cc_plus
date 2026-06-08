@@ -7,10 +7,11 @@ thread. Human-facing commands remain useful, but the framework must first serve
 Codex as a delegation owner that has limited context, limited quota, and final
 responsibility for user-facing acceptance.
 
-This spec records product direction and the current P0 implementation state.
+This spec records product direction and the current implementation state.
 P0 main-thread handoff, `ccstatus`, bounded wait guidance, audit/refusal schema,
-and first-use Claude Code reliability refusal are implemented. P1/P2 items remain
-tracked below.
+first-use Claude Code reliability refusal, DS advisory boundaries, hook fallback
+guidance, and the PageIndex API/socket failure fixture are implemented. Remaining
+P1/P2 items are tracked below.
 
 ## Implementation Status
 
@@ -27,13 +28,18 @@ Implemented in this phase:
 - child-thread contract updates for `READY`, `REPORT_READY`, and `REFUSED`;
 - canonical `audit_<RunId>.json/.md` artifacts through `ccstatus audit`;
 - tests for unreachable local backend, active-run wait guidance, preflight
-  refusal artifacts, and wrapper forwarding.
+  refusal artifacts, and wrapper forwarding;
+- PageIndex-style Claude API/socket failure fixture that preserves valid
+  artifacts while forcing `delegateStatus=FAILED`, `acceptanceAllowed=false`,
+  `businessAcceptance=blocked`, `businessFilesChanged=false`, and
+  `safeToRetrySameTaskFile=true`;
+- hook fallback context for `ccstatus preflight`, `WAITING`, `REFUSED`,
+  `RUNNING_DEAD_PROCESS`, audit handoff, and DS advisory-only boundaries.
 
 Not yet implemented:
 
 - workflow-verifier-owned acceptance audit generation remains separate from the
   `ccstatus audit -WorkflowId` rollup;
-- PageIndex socket/API failure fixture;
 - full provider adapter support for cc-switch desktop state.
 
 ## Role Personas
@@ -578,7 +584,8 @@ live run state, workflow gates, and failure-layer explanation.
 ### P1: Child-Thread Contract Enforcement
 
 Status: partially implemented through `ccstatus audit`, contract schema updates,
-and child-thread refusal protocol. Additional hook guidance remains open.
+child-thread refusal protocol, and hook fallback guidance. Additional structured
+child-thread response templates remain open.
 
 Make the child-thread return protocol harder to violate.
 
@@ -615,6 +622,8 @@ Implemented artifact boundary:
 
 ### P2: PageIndex Failure Fixture
 
+Status: implemented.
+
 Preserve a representative socket/API failure fixture with:
 
 - valid TaskFile;
@@ -626,6 +635,18 @@ Preserve a representative socket/API failure fixture with:
 
 This fixture should prevent regressions where a running/dead/missing-output state
 is accidentally treated as success.
+
+Acceptance evidence:
+
+- deterministic artifact verification can pass for the structured failed run;
+- `ccstatus run` keeps the observed state as `FAILED` instead of upgrading it to
+  `RUN_VERIFIED`;
+- run handoff reports `failureLayer=claude_api_connection`,
+  `mainThreadAction=run_runtime_diagnostics`, and `acceptanceAllowed=false`;
+- `ccstatus audit` records `executionLayerFailure=true`,
+  `businessFailure=false`, `businessAcceptance=blocked`,
+  `businessFilesChanged=false`, and `safeToRetrySameTaskFile=true`;
+- `ccindex` and `ccdash` surface failure layer and blocked business acceptance.
 
 ## Product Focus
 

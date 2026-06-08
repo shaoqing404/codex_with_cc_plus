@@ -80,6 +80,30 @@ def _verification_result(run_id: str, root: Path, should_verify: bool) -> dict[s
     return {"status": "passed", "mayOverrideVerifier": False}
 
 
+def _failure_metadata(config: dict[str, Any], status: dict[str, Any]) -> dict[str, Any]:
+    failure_layer = str(status.get("failureLayer") or config.get("failureLayer") or "")
+    failure_disposition = str(status.get("failureDisposition") or config.get("failureDisposition") or "")
+    worker_outcome = str(status.get("workerOutcome") or config.get("workerOutcome") or "")
+    business_acceptance = str(status.get("businessAcceptance") or config.get("businessAcceptance") or "")
+    execution_layer_failure = bool(failure_layer) or failure_disposition == "NEED_HUMAN_INTERVENTION"
+    if execution_layer_failure and not worker_outcome:
+        worker_outcome = "FAIL"
+    if execution_layer_failure and not business_acceptance:
+        business_acceptance = "blocked"
+    return {
+        "failureLayer": failure_layer,
+        "failureDisposition": failure_disposition,
+        "failureSummary": str(status.get("failureSummary") or config.get("failureSummary") or ""),
+        "workerOutcome": worker_outcome,
+        "businessAcceptance": business_acceptance,
+        "executionLayerFailure": execution_layer_failure,
+        "retryable": str(status.get("retryable") or config.get("retryable") or ""),
+        "safeToRetrySameTaskFile": bool(status.get("safeToRetrySameTaskFile") or config.get("safeToRetrySameTaskFile")),
+        "businessFilesChanged": bool(status.get("businessFilesChanged") or config.get("businessFilesChanged")),
+        "mayOverrideImplementation": bool(status.get("mayOverrideImplementation") or config.get("mayOverrideImplementation")),
+    }
+
+
 def build_run_supervisor_summary(
     run_id: str,
     artifact_root_value: str | None = None,
@@ -112,11 +136,12 @@ def build_run_supervisor_summary(
     terminal = run_status in ("completed", "failed")
     pid = recorded_delegate_pid(status)
     process_alive = pid_alive(pid) if pid is not None else None
+    failure = _failure_metadata(config, status)
 
-    if terminal and output_path.exists():
-        state = "REPORT_READY"
-    elif run_status == "failed":
+    if run_status == "failed":
         state = "FAILED"
+    elif terminal and output_path.exists():
+        state = "REPORT_READY"
     elif run_status == "running" and pid is not None and process_alive is False:
         state = "RUNNING_DEAD_PROCESS"
     elif run_status == "running":
@@ -127,7 +152,7 @@ def build_run_supervisor_summary(
         state = "RUNNING_QUIET"
 
     verification = _verification_result(run_id, root, verify and terminal)
-    if verification.get("status") == "passed":
+    if verification.get("status") == "passed" and not failure["executionLayerFailure"] and run_status == "completed":
         state = "RUN_VERIFIED"
     elif verification.get("status") == "failed":
         state = "FAILED"
@@ -142,6 +167,8 @@ def build_run_supervisor_summary(
         "RUNNING_QUIET": "continue_waiting_or_check_trace",
         "STARTING": "continue_waiting",
     }.get(state, "human_review_required")
+    if state == "FAILED" and failure["executionLayerFailure"]:
+        recommended_action = "run_runtime_diagnostics"
 
     return {
         "artifactSchema": ARTIFACT_SCHEMA_VERSION,
@@ -157,6 +184,16 @@ def build_run_supervisor_summary(
         "idleSeconds": idle_seconds,
         "staleAfterSeconds": stale_after_seconds,
         "lastStreamEvent": _last_stream_event(stream_path),
+        "failureLayer": failure["failureLayer"],
+        "failureDisposition": failure["failureDisposition"],
+        "failureSummary": failure["failureSummary"],
+        "workerOutcome": failure["workerOutcome"],
+        "businessAcceptance": failure["businessAcceptance"],
+        "executionLayerFailure": failure["executionLayerFailure"],
+        "retryable": failure["retryable"],
+        "safeToRetrySameTaskFile": failure["safeToRetrySameTaskFile"],
+        "businessFilesChanged": failure["businessFilesChanged"],
+        "mayOverrideImplementation": failure["mayOverrideImplementation"],
         "process": {
             "pid": pid,
             "alive": process_alive,

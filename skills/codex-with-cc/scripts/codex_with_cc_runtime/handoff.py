@@ -79,6 +79,8 @@ def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict
     run_id = str(run_summary.get("runId") or "")
     verifier = run_summary.get("deterministicVerifierResult") if isinstance(run_summary.get("deterministicVerifierResult"), dict) else {}
     report = run_summary.get("report") if isinstance(run_summary.get("report"), dict) else {}
+    failure_layer = str(run_summary.get("failureLayer") or "")
+    execution_layer_failure = bool(run_summary.get("executionLayerFailure"))
     if state == "RUN_VERIFIED":
         delegate_status = "REPORT_READY"
         action = "review_worker_report_and_workflow_gates"
@@ -94,6 +96,11 @@ def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict
         action = "rerun_or_trigger_failure_forensics"
         acceptance_allowed = False
         next_command = f"ccstatus run -RunId {run_id} -ArtifactRoot {artifact_root} --json"
+    elif execution_layer_failure:
+        delegate_status = "FAILED"
+        action = "run_runtime_diagnostics"
+        acceptance_allowed = False
+        next_command = "ccstatus claude --json"
     else:
         delegate_status = "FAILED"
         action = "inspect_failure_or_run_runtime_diagnostics"
@@ -109,6 +116,15 @@ def terminal_handoff(run_summary: dict[str, Any], *, artifact_root: str) -> dict
         "reportValid": bool(report.get("exists")),
         "verifierPassed": verifier.get("status") == "passed",
         "acceptanceAllowed": acceptance_allowed,
+        "failureLayer": failure_layer,
+        "failureSummary": str(run_summary.get("failureSummary") or ""),
+        "workerOutcome": str(run_summary.get("workerOutcome") or ""),
+        "businessAcceptance": str(run_summary.get("businessAcceptance") or ""),
+        "executionLayerFailure": execution_layer_failure,
+        "businessFilesChanged": bool(run_summary.get("businessFilesChanged")),
+        "safeToRetrySameTaskFile": bool(run_summary.get("safeToRetrySameTaskFile")),
+        "mayOverrideImplementation": bool(run_summary.get("mayOverrideImplementation")),
+        "humanInterventionRequired": bool(execution_layer_failure or state in {"FAILED", "RUNNING_DEAD_PROCESS", "STALE"}),
         "mainThreadAction": action,
         "recommendedWaitSeconds": 0,
         "nextCommand": next_command,

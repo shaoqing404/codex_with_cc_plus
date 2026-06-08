@@ -35,7 +35,13 @@ const FALLBACK_CONTEXT = [
   "- Child spawn metadata must be model: gpt-5.4-mini, reasoning_effort: medium, fork_context: false.",
   "- The child must set CODEX_CLAUDE_CHILD_THREAD=1 and call delegate_to_claude.* with -TaskFile, -WorkflowId, -TaskId, -Role, and -SessionKey.",
   "- Use local validate_delegate_task.* to preflight generated TaskFiles when review metadata or -Tests are involved; it is the deterministic zero-token hard gate.",
+  "- Before implementation dispatch when runtime reliability is unknown, run ccstatus preflight --json. If delegateStatus=REFUSED or dispatchAllowed=false, do not call delegate_to_claude.*.",
+  "- A child thread must not treat printed artifact paths, status=running, STARTING, RUNNING_ACTIVE, or RUNNING_QUIET as worker completion.",
+  "- For live runs, return DelegateStatus: WAITING with recommendedWaitSeconds and the next ccsupervise -Wait command, or run one bounded supervisor wait if explicitly instructed.",
+  "- For REFUSED, FAILED, STALE, RUNNING_DEAD_PROCESS, missing report, or Claude API/socket failures, return the handoff to the main thread with acceptanceAllowed=false, failureLayer, evidence paths, and nextCommand.",
+  "- Use ccstatus run -RunId <run-id> --json and ccstatus audit -RunId <run-id> --json as the main-thread decision surface after dispatch.",
   "- DeepSeek/OpenAI-compatible report runners may assist with task-file drafting or audits, but mayOverrideValidator=false and local validation still decides dispatchability.",
+  "- DeepSeek/OpenAI-compatible report runners are advisory only: mayOverrideVerifier=false, canEditBusinessFiles=false, canDispatchWorkerRuns=false, and canAcceptWorkflowResults=false.",
   "- Legacy inline -Task and -Mode delegate arguments are forbidden.",
 ].join("\n");
 
