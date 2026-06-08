@@ -5,15 +5,19 @@ import sys
 from typing import Callable
 
 from .artifacts import run_verify_artifacts, run_verify_chain, run_verify_workflow
+from .claude_cli import PERMISSION_MODES
 from .common import DelegateError, WORKER_ROLES
 from .cleanup import run_ccclean
+from .dashboard import run_ccdash
 from .delegate import run_delegate
 from .doctor import run_doctor
+from .index import run_ccindex
 from .openai_compatible_report import run_openai_compatible_report_delegate
 from .real_chain import run_real_chain_validation
 from .selftests import run_test_runtime, run_test_session_pool
 from .supervision import run_ccspec, run_ccsupervise, run_ccwatch
 from .task_contract import run_validate_task
+from .runtime_control import run_ccruntime
 from .ccviz_parser import list_workflows, get_workflow_details
 from .ccviz_renderer import render_list, render_show, render_audit
 
@@ -58,6 +62,7 @@ def add_delegate_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("-ReviewKind", dest="review_kind", type=choice_arg(["spec", "quality"]))
     parser.add_argument("-DependsOn", dest="depends_on", action="append", default=[])
     parser.add_argument("-Model", dest="model", default="sonnet")
+    parser.add_argument("-PermissionMode", dest="permission_mode", type=choice_arg(list(PERMISSION_MODES)), default="acceptEdits")
     parser.add_argument("-Name", dest="name")
     parser.add_argument("-NamePrefix", dest="name_prefix", default="codex-delegate")
     parser.add_argument("-MaxBudgetUsd", dest="max_budget_usd")
@@ -142,6 +147,38 @@ def build_parser() -> argparse.ArgumentParser:
     doctor.add_argument("--json", dest="json", action="store_true")
     doctor.set_defaults(func=run_doctor)
 
+    ccruntime = sub.add_parser("ccruntime", allow_abbrev=False)
+    ccruntime_sub = ccruntime.add_subparsers(dest="ccruntime_command", required=True)
+    runtime_status = ccruntime_sub.add_parser("status", allow_abbrev=False)
+    runtime_status.add_argument("-ClaudeSettingsPath", dest="claude_settings_path")
+    runtime_status.add_argument("--json", dest="json", action="store_true")
+    runtime_status.set_defaults(func=run_ccruntime)
+    runtime_doctor = ccruntime_sub.add_parser("doctor", allow_abbrev=False)
+    runtime_doctor.add_argument("-ArtifactRoot", dest="artifact_root")
+    runtime_doctor.add_argument("-ClaudeSettingsPath", dest="claude_settings_path")
+    runtime_doctor.add_argument("-ClaudeSmoke", dest="claude_smoke", action="store_true")
+    runtime_doctor.add_argument("-TimeoutSeconds", dest="timeout_seconds", type=int, default=10)
+    runtime_doctor.add_argument("--json", dest="json", action="store_true")
+    runtime_doctor.set_defaults(func=run_ccruntime)
+    for runtime_command_name in ("plan-switch", "apply-switch"):
+        runtime_command = ccruntime_sub.add_parser(runtime_command_name, allow_abbrev=False)
+        runtime_command.add_argument("-Model", dest="model", type=choice_arg(["opus", "sonnet", "haiku"]))
+        runtime_command.add_argument("-PermissionMode", dest="permission_mode", type=choice_arg(list(PERMISSION_MODES)), default="acceptEdits")
+        runtime_command.add_argument("-BaseUrl", dest="base_url")
+        runtime_command.add_argument("-OpusModel", dest="opus_model")
+        runtime_command.add_argument("-OpusModelName", dest="opus_model_name")
+        runtime_command.add_argument("-SonnetModel", dest="sonnet_model")
+        runtime_command.add_argument("-SonnetModelName", dest="sonnet_model_name")
+        runtime_command.add_argument("-HaikuModel", dest="haiku_model")
+        runtime_command.add_argument("-HaikuModelName", dest="haiku_model_name")
+        runtime_command.add_argument("-EffortLevel", dest="effort_level")
+        runtime_command.add_argument("-ApiTimeoutMs", dest="api_timeout_ms")
+        runtime_command.add_argument("-ArtifactRoot", dest="artifact_root")
+        runtime_command.add_argument("-ClaudeSettingsPath", dest="claude_settings_path")
+        runtime_command.add_argument("-ConfirmRuntimeChange", dest="confirm_runtime_change", action="store_true")
+        runtime_command.add_argument("--json", dest="json", action="store_true")
+        runtime_command.set_defaults(func=run_ccruntime)
+
     # ccviz subcommands
     ccviz = sub.add_parser("ccviz", allow_abbrev=False)
     ccviz_sub = ccviz.add_subparsers(dest="ccviz_command", required=True)
@@ -219,6 +256,42 @@ def build_parser() -> argparse.ArgumentParser:
         command.add_argument("-ConfirmDelete", dest="confirm_delete", action="store_true")
         command.add_argument("--json", dest="json", action="store_true")
         command.set_defaults(func=run_ccclean)
+
+    ccindex = sub.add_parser("ccindex", allow_abbrev=False)
+    ccindex_sub = ccindex.add_subparsers(dest="ccindex_command", required=True)
+    for command_name in ("build", "list", "export"):
+        command = ccindex_sub.add_parser(command_name, allow_abbrev=False)
+        command.add_argument("-ArtifactRoot", dest="artifact_root", action="append", default=[])
+        command.add_argument("-ProjectRoot", dest="project_root", action="append", default=[])
+        command.add_argument("-AllProjects", dest="all_projects", action="store_true")
+        command.add_argument("-ProjectMatch", dest="project_match", action="append", default=[])
+        command.add_argument("-Output", dest="output")
+        command.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+        command.add_argument("--json", dest="json", action="store_true")
+        command.set_defaults(func=run_ccindex)
+    ccindex_show = ccindex_sub.add_parser("show", allow_abbrev=False)
+    ccindex_show.add_argument("workflow_id")
+    ccindex_show.add_argument("-ArtifactRoot", dest="artifact_root", action="append", default=[])
+    ccindex_show.add_argument("-ProjectRoot", dest="project_root", action="append", default=[])
+    ccindex_show.add_argument("-AllProjects", dest="all_projects", action="store_true")
+    ccindex_show.add_argument("-ProjectMatch", dest="project_match", action="append", default=[])
+    ccindex_show.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+    ccindex_show.add_argument("--json", dest="json", action="store_true")
+    ccindex_show.set_defaults(func=run_ccindex)
+
+    ccdash = sub.add_parser("ccdash", allow_abbrev=False)
+    ccdash_sub = ccdash.add_subparsers(dest="ccdash_command", required=True)
+    for command_name in ("build", "open"):
+        command = ccdash_sub.add_parser(command_name, allow_abbrev=False)
+        command.add_argument("-ArtifactRoot", dest="artifact_root", action="append", default=[])
+        command.add_argument("-ProjectRoot", dest="project_root", action="append", default=[])
+        command.add_argument("-AllProjects", dest="all_projects", action="store_true")
+        command.add_argument("-ProjectMatch", dest="project_match", action="append", default=[])
+        command.add_argument("-OutputRoot", dest="output_root")
+        command.add_argument("-StaleAfterSeconds", dest="stale_after_seconds", type=int, default=600)
+        command.add_argument("--json", dest="json", action="store_true")
+        command.add_argument("--no-open", dest="no_open", action="store_true")
+        command.set_defaults(func=run_ccdash)
 
     return parser
 

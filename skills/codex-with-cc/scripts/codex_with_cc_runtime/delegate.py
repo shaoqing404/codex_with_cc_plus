@@ -396,6 +396,7 @@ def run_delegate(ns: argparse.Namespace) -> int:
         "tests": tests,
         "dependsOn": depends_on,
         "model": ns.model,
+        "permissionMode": ns.permission_mode,
         "sessionName": effective_name,
         "sessionMode": ns.session_mode,
         "sessionKey": key,
@@ -602,6 +603,7 @@ def run_delegate(ns: argparse.Namespace) -> int:
                     bool(ns.bypass_permissions),
                     ns.max_turns,
                     bool(ns.include_partial_messages),
+                    str(ns.permission_mode),
                 )
                 if attempt == 1:
                     config["initialSessionId"] = lease.session_id

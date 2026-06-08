@@ -14,10 +14,11 @@ Read this file before using the workflow in this repository. Treat `contract.jso
 6. Delegate commands must use task-file-only invocation. `-TaskFile`, `-WorkflowId`, `-TaskId`, `-Role`, and `-SessionKey` are required.
 7. Legacy inline `-Task`, legacy `-Mode`, missing workflow metadata, and implicit session-key fallback are not supported.
 8. `delegate_to_claude.*` must not pass `--effort`; Claude Code uses its configured default effort.
-9. Workers must follow the TaskFile contract: Goal, Allowed Scope, Forbidden Actions, Acceptance Criteria, Verification, and Report Requirements.
-10. Task files with empty sections, obvious placeholders, or incomplete Report Requirements are invalid; use `validate_delegate_task.*` before dispatch when preparing non-trivial work.
-11. Workers must finish with the exact report headings and concrete verification evidence.
-12. Implementer workflows require accepted `spec` and `quality` reviewer runs plus an accepted `final-verifier` run before workflow acceptance.
+9. `delegate_to_claude.*` accepts per-run `-Model` and `-PermissionMode`; defaults remain `sonnet` and `acceptEdits`. `-BypassPermissions` remains an explicit high-risk flag.
+10. Workers must follow the TaskFile contract: Goal, Allowed Scope, Forbidden Actions, Acceptance Criteria, Verification, and Report Requirements.
+11. Task files with empty sections, obvious placeholders, or incomplete Report Requirements are invalid; use `validate_delegate_task.*` before dispatch when preparing non-trivial work.
+12. Workers must finish with the exact report headings and concrete verification evidence.
+13. Implementer workflows require accepted `spec` and `quality` reviewer runs plus an accepted `final-verifier` run before workflow acceptance.
 
 ## Trigger Rule
 Any user mention of child-agent, subagent, sub-agent, child-thread, subthread, delegation, worker-execution, or Chinese equivalents such as 子代理、子线程、多代理、委派、派工、执行层 is a workflow trigger. When triggered, the main Codex thread must use this custom delegation workflow and must not satisfy the request with the default Codex subagent flow, a host-provided agent shortcut, direct `claude` execution, or direct main-thread execution of `delegate_to_claude.*`.
@@ -73,6 +74,56 @@ Runner separation:
 - A child thread must not report a delegated run as finished merely because artifact paths were printed or status is `running`. If the worker report is missing or the status is non-terminal, run `ccsupervise -Wait` or keep polling until the run is `RUN_VERIFIED`, `REPORT_READY`, `FAILED`, `STALE`, or `RUNNING_DEAD_PROCESS`. Treat `RUNNING_ACTIVE` and `STARTING` as wait states only.
 - Failure forensics: `Forensic Analyst` uses DeepSeek V4-Pro only after a deterministic verifier failure or explicit human request. It explains the failure, classifies risk, and recommends next action with `mayOverrideVerifier=false`.
 
+Child-thread return protocol:
+
+```text
+DelegateStatus: <DISPATCHED|WAITING|TERMINAL|FAILED>
+RunId: <run-id>
+WorkflowId: <workflow-id>
+TaskId: <task-id>
+ArtifactRoot: <artifact-root>
+StatusPath: <status-path>
+ReportPath: <claude/report path or missing>
+TracePath: <trace-path>
+RawStreamPath: <stream-path>
+ObservedState: <STARTING|RUNNING_ACTIVE|RUNNING_QUIET|REPORT_READY|FAILED|STALE|RUNNING_DEAD_PROCESS>
+Verifier: <not-run|passed|failed>
+Supervisor: <not-run|passed|failed>
+MainThreadAction: <wait-with-ccsupervise|verify-run|review-report|rerun-or-forensics>
+```
+
+When `ObservedState` is `STARTING`, `RUNNING_ACTIVE`, or `RUNNING_QUIET`, the only
+valid return is a waiting handoff, for example:
+
+```text
+DelegateStatus: WAITING
+RunId: <run-id>
+ObservedState: RUNNING_ACTIVE
+MainThreadAction: run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait
+No worker report is acceptable yet.
+```
+
+The main thread must treat that response as a checkpoint, not as task completion.
+Only terminal artifact evidence plus deterministic verifier support can advance to
+review or acceptance.
+
+Main-thread handling rules:
+
+- `DelegateStatus: WAITING`: immediately run the reported `ccsupervise -Wait`
+  command from the target project root. If supervisor times out, keep the run in
+  waiting state or increase `-TimeoutSeconds`; do not summarize implementation as
+  done.
+- `DelegateStatus: TERMINAL` with `ObservedState: REPORT_READY` or
+  `RUN_VERIFIED`: run `verify_delegate_run.*` or `verify_delegate_artifacts.*`,
+  then inspect the worker report before review gates.
+- `DelegateStatus: FAILED` or terminal `ObservedState: FAILED`, `STALE`, or
+  `RUNNING_DEAD_PROCESS`: inspect status, trace, raw stream, and report path.
+  Treat missing report or dead process as execution-layer failure, not partial
+  business success.
+- Printed artifact paths are useful provenance only. They are never acceptance
+  evidence without terminal state, report content, and deterministic verifier
+  support.
+
 Optional task-file assist may use `delegate_to_openai_compatible_report.*` to explain validation failures or draft a corrected TaskFile, but only as an authoring assistant. It must not edit business files, must not run shell tests, must not dispatch implementation work, and its report must state `mayOverrideValidator=false`. The deterministic `validate_delegate_task.*` result remains the only hard gate for whether a TaskFile is dispatchable.
 
 DeepSeek model boundaries:
@@ -106,6 +157,7 @@ env CODEX_CLAUDE_CHILD_THREAD=1 \
   -WorkflowId <workflow-id> \
   -TaskId <task-id> \
   -Role implementer \
+  -PermissionMode acceptEdits \
   -SessionKey <stable-session-key> \
   -Scope <changed-or-inspected-path>
 ```
@@ -208,6 +260,19 @@ ids, age, result, confidence, and protection reasons. `ccclean apply` requires
 `-ConfirmDelete` and moves files to a cleanup trash root instead of permanently
 deleting them. Failure, interrupted, running, recent, and orphan artifacts are
 protected by default.
+
+Use `ccruntime.* status|doctor|plan-switch|apply-switch` for Claude Code runtime
+visibility and controlled settings changes. `status` and `plan-switch` are
+read-first and redact secrets. `apply-switch` requires `-ConfirmRuntimeChange`,
+only changes whitelisted Claude settings fields, writes `runtime_<timestamp>.json/.md`,
+and records rollback evidence. Permission mode changes apply to delegate runner
+arguments, not to hidden global config.
+
+Use `ccindex.* build|list|show|export` for machine-level workflow indexing across
+project and user fallback artifact roots. Use `ccdash.* build|open` for a local
+static read-only dashboard generated from the index JSON. These observation
+commands must show provenance, confidence, and `mayOverrideVerifier=false`; they
+do not replace deterministic verifiers.
 
 `RUNNING_DEAD_PROCESS` means a status artifact still says `running` but the recorded worker PID is no longer alive. This is an interrupted/stale run, not partial success. Do not accept it; rerun the task or trigger failure forensics.
 

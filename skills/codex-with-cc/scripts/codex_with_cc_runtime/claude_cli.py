@@ -7,6 +7,8 @@ from typing import Any, Iterable
 from .reports import text_has_required_report_headings
 
 
+PERMISSION_MODES = ("acceptEdits", "auto", "bypassPermissions", "default", "dontAsk", "plan")
+
 
 def text_blocks(content: Any) -> list[str]:
     if content is None:
@@ -90,6 +92,7 @@ def new_claude_cli_args(
     bypass_permissions: bool,
     max_turns: int | None = None,
     include_partial_messages: bool = False,
+    permission_mode: str = "acceptEdits",
 ) -> list[str]:
     args = [
         "--verbose",
@@ -101,7 +104,7 @@ def new_claude_cli_args(
         "--model",
         model,
         "--permission-mode",
-        "acceptEdits",
+        permission_mode,
     ]
     args.extend(["--resume" if resume else "--session-id", session_id])
     if max_budget_usd not in (None, ""):

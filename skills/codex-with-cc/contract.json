@@ -81,6 +81,52 @@
     "DETERMINISTIC_VERIFY_FAILED",
     "HUMAN_OVERRIDE_REQUIRED"
   ],
+  "childThreadReturnProtocol": {
+    "requiredFields": [
+      "DelegateStatus",
+      "RunId",
+      "WorkflowId",
+      "TaskId",
+      "ArtifactRoot",
+      "StatusPath",
+      "ReportPath",
+      "TracePath",
+      "RawStreamPath",
+      "ObservedState",
+      "Verifier",
+      "Supervisor",
+      "MainThreadAction"
+    ],
+    "delegateStatusValues": [
+      "DISPATCHED",
+      "WAITING",
+      "TERMINAL",
+      "FAILED"
+    ],
+    "waitingStates": [
+      "STARTING",
+      "RUNNING_ACTIVE",
+      "RUNNING_QUIET"
+    ],
+    "terminalStates": [
+      "RUN_VERIFIED",
+      "REPORT_READY",
+      "FAILED",
+      "STALE",
+      "RUNNING_DEAD_PROCESS"
+    ],
+    "mainThreadActions": {
+      "STARTING": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
+      "RUNNING_ACTIVE": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
+      "RUNNING_QUIET": "run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait",
+      "RUN_VERIFIED": "run verify_delegate_run then review report evidence",
+      "REPORT_READY": "run verify_delegate_run then review report evidence",
+      "FAILED": "inspect status, trace, stream, and decide rerun or forensics",
+      "STALE": "treat as interrupted then rerun or trigger forensics",
+      "RUNNING_DEAD_PROCESS": "treat as interrupted then rerun or trigger forensics"
+    },
+    "completionRule": "Printed artifact paths, status=running, STARTING, RUNNING_ACTIVE, and RUNNING_QUIET are checkpoints only. They are not worker completion and cannot advance review or acceptance."
+  },
   "workerRoles": [
     "planner",
     "implementer",

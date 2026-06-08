@@ -31,4 +31,46 @@ Dispatch discipline:
 - After a parallel batch, wait for the anchor and side tasks before serial review or follow-up implementation.
 - A child thread must wait for terminal delegate evidence. Artifact paths, `status: running`, `RUNNING_ACTIVE`, or `STARTING` are not completion. If the worker report is missing or non-terminal, run `ccsupervise -Wait` and then deterministic verification before returning a worker result.
 
+Required child-thread return shape:
+
+```text
+DelegateStatus: <DISPATCHED|WAITING|TERMINAL|FAILED>
+RunId: <run-id>
+WorkflowId: <workflow-id>
+TaskId: <task-id>
+ArtifactRoot: <artifact-root>
+StatusPath: <status-path>
+ReportPath: <claude/report path or missing>
+TracePath: <trace-path>
+RawStreamPath: <stream-path>
+ObservedState: <STARTING|RUNNING_ACTIVE|RUNNING_QUIET|REPORT_READY|FAILED|STALE|RUNNING_DEAD_PROCESS>
+Verifier: <not-run|passed|failed>
+Supervisor: <not-run|passed|failed>
+MainThreadAction: <wait-with-ccsupervise|verify-run|review-report|rerun-or-forensics>
+```
+
+If `ObservedState` is `STARTING`, `RUNNING_ACTIVE`, or `RUNNING_QUIET`, the child
+thread must say `DelegateStatus: WAITING` and `MainThreadAction:
+wait-with-ccsupervise`; it must not summarize implementation, review, or acceptance
+as complete. A concise valid waiting response is:
+
+```text
+DelegateStatus: WAITING
+RunId: <run-id>
+ObservedState: RUNNING_ACTIVE
+MainThreadAction: run ccsupervise -RunId <run-id> -ArtifactRoot <artifact-root> -Wait
+No worker report is acceptable yet.
+```
+
+Main-thread instruction handoff:
+
+- For `WAITING`, include the exact `ccsupervise -RunId ... -ArtifactRoot ... -Wait`
+  command the main thread should run from the target project root.
+- For `TERMINAL`, include the exact verifier command the main thread should run
+  next and whether report review is allowed.
+- For `FAILED`, list status, trace, stream, and report paths, then say whether
+  this is an execution-layer failure or a worker-reported task failure.
+- Never use natural-language success wording unless `Verifier: passed` and the
+  worker report is present.
+
 Do not dispatch default Codex workers outside the codex-with-cc chain.

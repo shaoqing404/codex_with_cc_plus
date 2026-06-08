@@ -48,12 +48,20 @@ Failure branches:
 - `ccsupervise -RunId <id>`: write `supervisor_<RunId>.json/.md` after observation.
 - `ccclean list|plan|apply`: inspect and reversibly clean old workflow artifact
   groups with explicit protection reasons.
+- `ccruntime status|doctor|plan-switch|apply-switch`: inspect Claude Code runtime
+  state and apply confirmed whitelisted settings changes with audit artifacts.
+- `ccindex build|list|show|export`: build machine-level artifact indexes with
+  confidence, provenance, model, permission, and run-state metadata.
+- `ccdash build|open`: generate a local static read-only dashboard from `ccindex`
+  JSON.
 
 ## Planned Next Phase
 
 - `0005-machine-observability-browser-runtime-control.md`: browser verification lane,
   Claude Code runtime/model/permission visibility, machine-level workflow index, and
   local/Codex Sites dashboard planning.
+- `0006-command-taxonomy-runtime-index-dashboard.md`: implemented command taxonomy,
+  runtime control, machine index, and static dashboard phase.
 
 Specs are not success claims. Deterministic validators and verifiers remain the hard
 gates.

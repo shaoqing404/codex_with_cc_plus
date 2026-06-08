@@ -151,6 +151,8 @@ def test_delegate_wrapper_is_thin_and_forwards_to_python() -> None:
             "pytest;git diff --check",
             "-Model",
             "sonnet",
+            "-PermissionMode",
+            "plan",
             "-NamePrefix",
             "wrapper-test",
             "-MaxBudgetUsd",
@@ -186,6 +188,7 @@ def test_delegate_wrapper_is_thin_and_forwards_to_python() -> None:
         prompt = (artifact_root / f"prompt_{run_id}.md").read_text(encoding="utf-8")
 
         assert config["mode"] == "researcher"
+        assert config["permissionMode"] == "plan"
         assert config["maxBudgetUsd"] == "0.35"
         assert config["maxTurns"] == 12
         assert config["includePartialMessages"] is True
@@ -259,6 +262,9 @@ def test_windows_artifact_and_chain_wrappers_forward_to_python() -> None:
     assert_windows_wrapper_is_thin("verify_delegate_chain.ps1", "verify_delegate_chain.py")
     assert_windows_wrapper_is_thin("run_real_delegate_chain_validation.ps1", "run_real_delegate_chain_validation.py")
     assert_windows_wrapper_is_thin("ccclean.ps1", "ccclean.py")
+    assert_windows_wrapper_is_thin("ccruntime.ps1", "ccruntime.py")
+    assert_windows_wrapper_is_thin("ccindex.ps1", "ccindex.py")
+    assert_windows_wrapper_is_thin("ccdash.ps1", "ccdash.py")
     assert_windows_wrapper_is_thin("validate_delegate_task.ps1", "validate_delegate_task.py")
 
     with tempfile.TemporaryDirectory(prefix="codex_with_cc_chain_wrapper_") as tmp:
