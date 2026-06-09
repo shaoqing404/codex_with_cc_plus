@@ -607,6 +607,8 @@ def test_contract_declares_run_handoff_artifact_schema() -> None:
     assert handoff_schema["markdownPattern"] == "handoff_<RunId>.md"
     assert "ccstatus run" in handoff_schema["command"]
     assert "childThreadResponseTemplate" in handoff_schema["handoffRequiredFields"]
+    assert "handoffPath" in handoff_schema["handoffRequiredFields"]
+    assert "handoffMarkdownPath" in handoff_schema["handoffRequiredFields"]
     assert "mayOverrideVerifier" in handoff_schema["requiredFields"]
     assert "cannot replace run audits" in handoff_schema["acceptanceRule"]
 
@@ -662,6 +664,10 @@ def test_ccstatus_run_returns_wait_handoff_for_active_run() -> None:
         handoff_package = json.loads(Path(payload["handoffPath"]).read_text(encoding="utf-8"))
         assert handoff_package["handoffArtifactType"] == "codex-with-cc-run-handoff"
         assert handoff_package["handoff"]["delegateStatus"] == "WAITING"
+        assert handoff_package["handoff"]["handoffPath"] == payload["handoffPath"]
+        assert handoff_package["handoff"]["handoffMarkdownPath"] == payload["handoffMarkdownPath"]
+        assert f"HandoffPath: {payload['handoffPath']}" in handoff_package["handoff"]["childThreadResponseTemplate"]
+        assert f"HandoffMarkdownPath: {payload['handoffMarkdownPath']}" in handoff_package["handoff"]["childThreadResponseTemplate"]
         assert "DelegateStatus: WAITING" in handoff_package["handoff"]["childThreadResponseTemplate"]
         assert "no worker report is acceptable yet" in handoff_package["handoff"]["childThreadResponseTemplate"]
         assert "Child Thread Response Template" in Path(payload["handoffMarkdownPath"]).read_text(encoding="utf-8")
@@ -689,6 +695,7 @@ def test_ccstatus_run_writes_failed_handoff_for_dead_running_process() -> None:
         assert Path(payload["handoffPath"]).exists()
         handoff_package = json.loads(Path(payload["handoffPath"]).read_text(encoding="utf-8"))
         assert handoff_package["handoff"]["observedState"] == "RUNNING_DEAD_PROCESS"
+        assert f"HandoffPath: {payload['handoffPath']}" in handoff_package["handoff"]["childThreadResponseTemplate"]
         assert "AcceptanceAllowed: false" in handoff_package["handoff"]["childThreadResponseTemplate"]
         assert "do not present delegated work as accepted" in handoff_package["handoff"]["childThreadResponseTemplate"]
 

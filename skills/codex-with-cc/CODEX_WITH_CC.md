@@ -97,6 +97,8 @@ RunId: <run-id>
 WorkflowId: <workflow-id>
 TaskId: <task-id>
 ArtifactRoot: <artifact-root>
+HandoffPath: <handoff-json-path>
+HandoffMarkdownPath: <handoff-md-path>
 StatusPath: <status-path>
 ReportPath: <claude/report path or missing>
 TracePath: <trace-path>
@@ -337,8 +339,9 @@ the package includes a report-only TaskFile and a child-thread command for
 `delegate_to_openai_compatible_report.*`. It does not call DS, keeps
 `automaticDispatch=false`, and records `modelInvocation=not_started`.
 `ccstatus run -RunId <run-id> --json` writes `handoff_<RunId>.json/.md` with the
-current observed state and a `childThreadResponseTemplate`. A child thread should
-copy that template back to the main thread for `WAITING`, `FAILED`,
+current observed state, `HandoffPath`, `HandoffMarkdownPath`, and a
+`childThreadResponseTemplate`. A child thread should copy that template back to
+the main thread for `WAITING`, `FAILED`,
 `REPORT_READY`, `STALE`, and `RUNNING_DEAD_PROCESS` states instead of improvising
 completion claims.
 `ccstatus audit -WorkflowId <workflow-id> --json` writes

@@ -160,6 +160,8 @@ def child_thread_response_template(handoff: dict[str, Any], run_summary: dict[st
         f"WorkflowId: {workflow_id}",
         f"TaskId: {task_id}",
         f"ArtifactRoot: {handoff.get('artifactRoot') or evidence.get('root') or ''}",
+        f"HandoffPath: {handoff.get('handoffPath') or ''}",
+        f"HandoffMarkdownPath: {handoff.get('handoffMarkdownPath') or ''}",
         f"StatusPath: {status_path}",
         f"ReportPath: {report_path}",
         f"TracePath: {trace_path}",

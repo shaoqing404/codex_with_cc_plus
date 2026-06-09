@@ -213,6 +213,8 @@
       "nextCommand",
       "confidence",
       "evidencePaths",
+      "handoffPath",
+      "handoffMarkdownPath",
       "childThreadResponseTemplate",
       "mayOverrideValidator",
       "mayOverrideVerifier"

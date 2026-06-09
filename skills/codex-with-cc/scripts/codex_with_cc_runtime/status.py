@@ -13,7 +13,7 @@ from .artifacts import resolve_artifact_root
 from .common import ARTIFACT_SCHEMA_VERSION, INVOCATION_CONTRACT, DelegateError, now_iso
 from .doctor import build_doctor_report
 from .ds_routing import run_audit_ds_routing, workflow_audit_ds_routing
-from .handoff import refusal_handoff, terminal_handoff, wait_handoff
+from .handoff import child_thread_response_template, refusal_handoff, terminal_handoff, wait_handoff
 from .index import build_index
 from .io_utils import load_json, read_text, write_json, write_text
 from .paths import repo_root, script_ext, script_family, workflow_root
@@ -192,13 +192,17 @@ def write_run_handoff_artifacts(report: dict[str, Any], artifact_root_value: str
     md_path = root / f"handoff_{run_id}.md"
     report["handoffPath"] = str(json_path)
     report["handoffMarkdownPath"] = str(md_path)
+    handoff = report.get("handoff") if isinstance(report.get("handoff"), dict) else {}
+    handoff["handoffPath"] = str(json_path)
+    handoff["handoffMarkdownPath"] = str(md_path)
+    summary = report.get("summary") if isinstance(report.get("summary"), dict) else {}
+    handoff["childThreadResponseTemplate"] = child_thread_response_template(handoff, summary)
     package = {
         **report,
         "handoffArtifactType": "codex-with-cc-run-handoff",
         "mayOverrideValidator": False,
         "mayOverrideVerifier": False,
     }
-    handoff = report.get("handoff") if isinstance(report.get("handoff"), dict) else {}
     evidence_paths = handoff.get("evidencePaths") if isinstance(handoff.get("evidencePaths"), dict) else {}
     write_json(json_path, package)
     write_text(

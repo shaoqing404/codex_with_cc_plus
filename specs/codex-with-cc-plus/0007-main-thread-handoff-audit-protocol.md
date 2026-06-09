@@ -27,7 +27,7 @@ Implemented in this phase:
   machine-readable handoff;
 - child-thread contract updates for `READY`, `REPORT_READY`, and `REFUSED`;
 - run handoff artifacts `handoff_<RunId>.json/.md` from `ccstatus run`, including
-  a `childThreadResponseTemplate`;
+  `HandoffPath`, `HandoffMarkdownPath`, and a `childThreadResponseTemplate`;
 - canonical `audit_<RunId>.json/.md` artifacts through `ccstatus audit`;
 - verifier-owned `verifier_audit_<WorkflowId>.json/.md` artifacts from
   `verify_delegate_workflow`, with gate results, verified runs,
@@ -612,15 +612,17 @@ live run state, workflow gates, and failure-layer explanation.
 
 ### P1: Child-Thread Contract Enforcement
 
-Status: implemented for `ccstatus run` handoff artifacts and response templates;
-additional host-level enforcement remains a future refinement.
+Status: implemented for `ccstatus run` handoff artifacts, response templates,
+and explicit handoff artifact paths; additional host-level enforcement remains a
+future refinement.
 
 Make the child-thread return protocol harder to violate.
 
 Implemented:
 
 - `ccstatus run` writes `handoff_<RunId>.json/.md`;
-- handoff artifacts include `childThreadResponseTemplate`;
+- handoff artifacts include `childThreadResponseTemplate`, `HandoffPath`, and
+  `HandoffMarkdownPath` in the child-thread response template;
 - tests cover `WAITING`, `FAILED`, and `RUNNING_DEAD_PROCESS` artifacts, while
   existing dry-run verified reports cover the `REPORT_READY`/`RUN_VERIFIED`
   transfer path;
@@ -630,8 +632,9 @@ Implemented:
 
 Future refinement:
 
-- make hosts with richer hook APIs require a handoff artifact path in child-thread
-  terminal responses.
+- make hosts with richer hook APIs enforce the handoff artifact path in
+  child-thread terminal responses, now that the deterministic template exposes
+  it.
 
 ### P1: DS Boundary And Routing
 
